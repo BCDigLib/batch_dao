@@ -87,7 +87,8 @@ def main():
         date_json = create_date_json(archival_object_json, unique_id, collection_dates)
         # make the JSON
         dig_obj = {'jsonmodel_type':'digital_object','title':obj_title, 'digital_object_type':
-                get_resource_type(archival_object_json, id_ref), 'language': lang_code,
+                get_resource_type(archival_object_json, id_ref), 'lang_materials':[{'jsonmodel_type':'lang_material',
+                'language_and_script':{'language': lang_code, 'jsonmodel_type':'language_and_script'}}],
                 'digital_object_id': 'http://hdl.handle.net/2345.2/' + unique_id, 'publish': True, 'notes':[{'content':
                 [use_note], 'type':'userestrict', 'jsonmodel_type':'note_digital_object'},{'content':[dimensions_note],
                 'type':'dimensions', 'jsonmodel_type':'note_digital_object'}, {'content':[format_note], 'type':'note','jsonmodel_type':'note_digital_object'},
