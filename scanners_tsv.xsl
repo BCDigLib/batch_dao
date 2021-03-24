@@ -6,21 +6,30 @@
         <xsl:text>&#x9;</xsl:text>
     </xsl:variable>
     <xsl:template match="/">
-        <!-- Level attribute needs changing on a project-dependant basis! -->
-        <xsl:for-each select="//ead:c[@level='file']">
+        <xsl:for-each select="//ead:did/ead:unitid">
+            <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
             <xsl:choose>
-                <xsl:when test="ead:did/ead:unitid">
-                    <xsl:value-of select="ead:did/ead:unitid"/>
+                <xsl:when test="not(@audience='internal')">
+                    <xsl:value-of select="."/>
                     <xsl:value-of select="$varTab"/>
-                    <xsl:value-of select="ead:did/ead:unittitle"/>
+                    <xsl:value-of select="preceding-sibling::ead:unittitle"/>
                     <xsl:value-of select="$varTab"/>
-                    <xsl:text>Box </xsl:text><xsl:value-of select="ead:did/ead:container[@type='box']"/><xsl:text>, Folder </xsl:text><xsl:value-of select="ead:did/ead:container[@type='folder']"/>
+                    <xsl:text>Box </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='box']"/>
+                    <xsl:choose>
+                        <xsl:when test="following-sibling::ead:container[@type='folder']">
+                            <xsl:text>, Folder </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='folder']"/>
+                        </xsl:when>
+                        <xsl:when test="following-sibling::ead:container[@type='volume']">
+                            <xsl:text>, Volume </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='volume']"/>
+                        </xsl:when>
+                    </xsl:choose>
                     <xsl:value-of select="$varTab"/>
-                    <xsl:value-of select="ead:did/ead:unitdate/@normal"/>
+                    <xsl:value-of select="following-sibling::ead:unitdate/@normal"/>
                     <xsl:text>
 </xsl:text>
                 </xsl:when>
             </xsl:choose>
+            </xsl:if>
         </xsl:for-each>
     </xsl:template>
 </xsl:stylesheet>
