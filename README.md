@@ -9,8 +9,8 @@ Steps:
 
 3. Transform the collection EAD into two different tab delimited files, using aspace_ead_to_tab.xsl and scanners_tsv.xsl. The output from scanners_tsv.xsl should be sent to the digitization staff as a tracking worksheet for digitization, and the output from aspace_ead_to_tab.xsl will be used to run aspace_batch_dao.py once digitization is complete.
 
-4. When the digitization is complete, the Digital Preservation Librarian runs FITS over the resulting files. Run the fits-to-json XSL over the FITS file, to create a .json file of technical metadata.
+4. When the digitization is complete, run FITS over the image files. Run the fits-to-json XSL over the FITS xml file, to create a .json file of technical metadata.
 
 5. Run aspace_batch_dao.py from the command line with the following usage: "aspace_batch_dao.py tab_file.txt fits-file.json" where tab_file.txt is the output of aspace_ead_to_tab.xsl, and fits-file.json is the output of step 4. This will call on the ArchivesSpace API to create a Digital Object and Digital Object Components for each object and the image files that represent it. If there are errors, the object metadata in ArchivesSpace or various aspects of the python script may need editing.
 
-6. After running aspace_batch_dao.py, there will now be a file titled "ids_for_manifest.txt'. This file can be used as input for the aspace-iiif gem to generate manifests for Mirador ingest.
+6. After running aspace_batch_dao.py, there will now be a folder in the directory the script was run from, containing METS files for each DAO created. See the wiki for documentation on how to use these files in repository ingest.
