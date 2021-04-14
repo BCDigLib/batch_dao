@@ -7,8 +7,8 @@
 # Also imports technical metadata from an exif file and stores it on the pertinent Digital Object Components.
 # METS exports for every created Digital Object are also saved off in a folder labeled "METS".
 
-# USAGE: |aspace_batch_dao.py tab_file.txt fits_file.csv| where tab_file.txt is the output of aspace_ead_to_tab.xsl
-# and fits_file.csv is provided by the Digital Preservation Librarian and meets the specifications listed in the readme.
+# USAGE: |aspace_batch_dao.py tab_file.txt fits_file.json| where tab_file.txt is the output of aspace_ead_to_tab.xsl
+# and fits_file.json is the output of running fit-to-json.xsl over a FITS xml file.
 
 import requests
 import json
