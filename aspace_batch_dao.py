@@ -85,10 +85,17 @@ def main():
             agent_data = []
         # check for expression type 'single' before looking for both start and end dates
         date_json = create_date_json(archival_object_json, unique_id, collection_dates)
+        # pull in files list from dictionary to get data to create digital object components and thumbnail
+        file_names = files_listing[unique_id]
+        file_names.sort()
         # make the JSON
         dig_obj = {'jsonmodel_type':'digital_object','title':obj_title, 'digital_object_type':
                 get_resource_type(archival_object_json, id_ref), 'lang_materials':[{'jsonmodel_type':'lang_material',
                 'language_and_script':{'language': lang_code, 'jsonmodel_type':'language_and_script'}}],
+                'file_versions':[{'file_uri': 'http://hdl.handle.net/2345.2/' + unique_id, 'publish':True, 'is_representative':True, 'jsonmodel_type':'file_version',
+                'xlink_actuate_attribute':'onRequest', 'xlink_show_attribute':'new'}, {'file_uri':'https://iiif.bc.edu/'
+                +  file_names[0] + '.jp2/full/!200,200/0/default.jpg','publish':True, 'xlink_actuate_attribute':'onLoad',
+                'xlink_show_attribute':'embed', 'is_representative':False, 'jsonmodel_type':'file_version'}],
                 'digital_object_id': 'http://hdl.handle.net/2345.2/' + unique_id, 'publish': True, 'notes':[{'content':
                 [use_note], 'type':'userestrict', 'jsonmodel_type':'note_digital_object'},{'content':[dimensions_note],
                 'type':'dimensions', 'jsonmodel_type':'note_digital_object'}, {'content':[format_note], 'type':'note','jsonmodel_type':'note_digital_object'},
@@ -118,8 +125,6 @@ def main():
         archival_object_update = requests.post(aspace_url + archival_object_uri, headers=headers, data=archival_object_data).json()
         print(archival_object_update)
         # pull in files list from dictionary to get data to create digital object components.
-        file_names = files_listing[unique_id]
-        file_names.sort()
         for name in file_names:
             period_loc = name.index('.')
             base_name = name[0:period_loc]
