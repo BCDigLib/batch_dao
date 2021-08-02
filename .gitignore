@@ -1,0 +1,16 @@
+.DS_Store
+*.tsv
+*.sh
+*.json
+*.xml
+*.txt
+
+# various organizing directories
+/EAD/*
+!/EAD/.keep
+/FITS/*
+!/FITS/.keep
+/METS/*
+!/METS/.keep
+/TSV/*
+!/TSV/.keep
