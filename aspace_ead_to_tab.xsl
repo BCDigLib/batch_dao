@@ -9,7 +9,7 @@
     <xsl:variable name="langCode">
         <xsl:text>Language</xsl:text>
     </xsl:variable>
-    <!-- Set Digital Commonwealth genre type here. Must be one of the 20 headings listed in the DC-BPL MODS guidelines. Word only, Aspace handles the authority code. -->
+    <!-- Set Digital Commonwealth genre type here. Must be one of the 20 headings listed in the DC-BPL MODS guidelines. Word only, ASpace handles the authority code. -->
     <xsl:variable name="DCGenre">
         <xsl:text>Genre</xsl:text>
     </xsl:variable>
@@ -35,7 +35,7 @@
         <xsl:value-of
             select="normalize-space(//ead:ead/ead:archdesc[@level='collection']/ead:userestrict/ead:p)"/>
         <xsl:value-of select="$varTab"/>
-        <xsl:value-of select="ead:unitdate/@normal"/>
+        <xsl:value-of select="following-sibling::ead:unitdate/@normal"/>
         <xsl:value-of select="$varTab"/>
         <xsl:value-of select="$langCode"/>
         <xsl:value-of select="$varTab"/>
