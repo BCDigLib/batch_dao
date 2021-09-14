@@ -5,6 +5,7 @@
 *.xml
 *.txt
 .env
+!sample.env
 
 # various organizing directories
 /EAD/*
@@ -13,7 +14,7 @@
 !/FITS/.keep
 /METS/*
 !/METS/.keep
-/TSV/*
-!/TSV/.keep
+/TRANSLATIONS/*
+!/TRANSLATIONS/.keep
 /LOGS/*
 !/LOGS/.keep
