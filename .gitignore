@@ -4,6 +4,7 @@
 *.json
 *.xml
 *.txt
+.env
 
 # various organizing directories
 /EAD/*
@@ -14,3 +15,5 @@
 !/METS/.keep
 /TSV/*
 !/TSV/.keep
+/LOGS/*
+!/LOGS/.keep
