@@ -3,6 +3,13 @@
 ## Object
 To automatically generate description in ArchivesSpace for digitized archival materials, and to re-use that description to ingest files into a Digital Libraries repository.
 
+## Prerequisites
+Install the `python-dotenv` python library:
+
+```pip3 install python-dotenv```
+
+Copy `sample.env` to `.env` and include your ArchivesSpace credentials.
+
 ## Steps:
 
 ### Select for digitization
@@ -14,18 +21,18 @@ Once all objects selected for digitization within a given collection have been m
 ### Transform EAD
 Transform the collection EAD into two different tab delimited files, using aspace_ead_to_tab.xsl and scanners_tsv.xsl. 
 
-* The output from [aspace_ead_to_tab.xsl](aspace_ead_to_tab.xsl) will be used to run aspace_batch_dao.py once digitization is complete. The output of this transofrmation can be named `tab_file.tsv`.
-* The output from [scanners_tsv.xsl](scanners_tsv.xsl) should be sent to the digitization staff as a tracking worksheet for digitization. The output of this transformation can be named `scanner-worsksheet.tsv`.
+* The output from [aspace_ead_to_tab.xsl](XSL/aspace_ead_to_tab.xsl) will be used to run aspace_batch_dao.py once digitization is complete. The output of this transofrmation can be named `tab_file.tsv`.
+* The output from [scanners_tsv.xsl](XSL/scanners_tsv.xsl) should be sent to the digitization staff as a tracking worksheet for digitization. The output of this transformation can be named `scanner-worsksheet.tsv`.
 
 ### Generate FITS and transform into a JSON file
-When the digitization is complete, run FITS over the image files. Run the [fits-to-json.xsl](fits-to-json.xsl) XSL over the FITS xml file, to create a JSON file of technical metadata. The output of this transformation can be named `fits-file.json`.
+When the digitization is complete, run FITS over the image files. Run the [fits-to-json.xsl](XSL/fits-to-json.xsl) XSL over the FITS xml file, to create a JSON file of technical metadata. The output of this transformation can be named `fits-file.json`.
 
 ### Run batch DAO script
 Run [aspace_batch_dao.py](aspace_batch_dao.py) from the command line with the following usage: 
 
-`aspace_batch_dao.py tab_file.tsv fits-file.json` 
+`aspace_batch_dao.py ead_to_tab.tsv fits-file.json` 
 
-* where `tab_file.tsv` is the output of aspace_ead_to_tab.xsl,
+* where `ead_to_tab.tsv` is the output of aspace_ead_to_tab.xsl,
 * and `fits-file.json` is the output of the FITS transformation. 
 
 This script will call on the ArchivesSpace API to create a Digital Object, and one or more Digital Object Components for each object and the image files that represent it. If there are errors, the object metadata in ArchivesSpace or various aspects of the python script may need editing.
