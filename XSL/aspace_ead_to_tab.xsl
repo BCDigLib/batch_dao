@@ -18,7 +18,7 @@
         <xsl:text>text</xsl:text>
     </xsl:variable>
     <xsl:template match="/">
-        <xsl:for-each select="//ead:did/ead:unitid">
+        <xsl:for-each select="//ead:did/ead:unitid[not(@audience)]">
             <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
                 <xsl:call-template name="DAO"/>
             </xsl:if>
