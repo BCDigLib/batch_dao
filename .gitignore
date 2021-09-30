@@ -18,3 +18,5 @@
 !/TRANSLATIONS/.keep
 /LOGS/*
 !/LOGS/.keep
+/HANDLES/*
+!/HANDLES/.keep
