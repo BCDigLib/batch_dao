@@ -4,9 +4,9 @@
 To automatically generate description in ArchivesSpace for digitized archival materials, and to re-use that description to ingest files into a Digital Libraries repository.
 
 ## Prerequisites
-Install the `python-dotenv` python library:
+Install the project dependencies outlined in `requirements.txt` using pip:
 
-```pip3 install python-dotenv```
+``` pip install -r requirements.txt```
 
 Copy `sample.env` to `.env` and include your ArchivesSpace credentials.
 
