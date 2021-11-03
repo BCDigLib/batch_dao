@@ -7,18 +7,18 @@
     </xsl:variable>
     <!-- Set language code at the start of a project. Should be 3-letter NISO encoding, typically 'eng' or 'zxx' -->
     <xsl:variable name="langCode">
-        <xsl:text>Language</xsl:text>
+        <xsl:text>eng</xsl:text>
     </xsl:variable>
-    <!-- Set Digital Commonwealth genre type here. Must be one of the 20 headings listed in the DC-BPL MODS guidelines. Word only, Aspace handles the authority code. -->
+    <!-- Set Digital Commonwealth genre type here. Must be one of the 20 headings listed in the DC-BPL MODS guidelines. Word only, ASpace handles the authority code. -->
     <xsl:variable name="DCGenre">
-        <xsl:text>Genre</xsl:text>
+        <xsl:text>Correspondence</xsl:text>
     </xsl:variable>
     <!-- Set Digital Commonwealth typeOfResource here. Must be one of the 11 options listed in the DC-BPL MODS guidelines. -->
     <xsl:variable name="typeOfResource">
-        <xsl:text>typeOfResource</xsl:text>
+        <xsl:text>text</xsl:text>
     </xsl:variable>
     <xsl:template match="/">
-        <xsl:for-each select="//ead:did/ead:unitid">
+        <xsl:for-each select="//ead:did/ead:unitid[not(@audience)]">
             <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
                 <xsl:call-template name="DAO"/>
             </xsl:if>
@@ -35,7 +35,7 @@
         <xsl:value-of
             select="normalize-space(//ead:ead/ead:archdesc[@level='collection']/ead:userestrict/ead:p)"/>
         <xsl:value-of select="$varTab"/>
-        <xsl:value-of select="ead:unitdate/@normal"/>
+        <xsl:value-of select="following-sibling::ead:unitdate/@normal"/>
         <xsl:value-of select="$varTab"/>
         <xsl:value-of select="$langCode"/>
         <xsl:value-of select="$varTab"/>

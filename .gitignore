@@ -1,0 +1,22 @@
+.DS_Store
+*.tsv
+*.sh
+*.json
+*.xml
+*.txt
+.env
+!sample.env
+
+# various organizing directories
+/EAD/*
+!/EAD/.keep
+/FITS/*
+!/FITS/.keep
+/METS/*
+!/METS/.keep
+/TRANSLATIONS/*
+!/TRANSLATIONS/.keep
+/LOGS/*
+!/LOGS/.keep
+/HANDLES/*
+!/HANDLES/.keep
