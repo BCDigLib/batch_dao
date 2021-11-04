@@ -40,7 +40,7 @@ def write_out(str, write_to_stdout=True):
     file_out.write(str + "\n")
     if write_to_stdout:
         print(str)
-        
+
 
 def main():
     start_now = datetime.now()
@@ -87,15 +87,15 @@ def main():
     try:
         auth = requests.post(ASPACE_URL + '/users/' + ASPACE_USERNAME + '/login?password=' + ASPACE_PASSWORD)
         auth.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        write_out("Error loading ASpace session. Maybe check your login info, or connect through a VPN.")
-        raise SystemExit()
     except requests.exceptions.Timeout as e:
         write_out("Timeout error. Is the server running, or do you need to connect through a VPN?")
         raise SystemExit()
     except requests.exceptions.HTTPError as e:
         write_out("Caught HTTP error.")
         raise SystemExit(e)
+    except requests.exceptions.RequestException as e:
+        write_out("Error loading ASpace session. Maybe check your login info, or connect through a VPN.")
+        raise SystemExit()
 
     # convert auth request obj into a json formatted object
     try:
@@ -222,16 +222,16 @@ def main():
         try:
             lookup_raw  = requests.get(ao_record_url, headers=headers, params=params)
             lookup_raw.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            write_out("  ❌ Error loading ASpace record. Continuing to next AO record.")
-            continue
         except requests.exceptions.Timeout as e:
             write_out("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN? Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
             continue
         except requests.exceptions.HTTPError as e:
             write_out("  ❌ Caught HTTP error. Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
+            continue
+        except requests.exceptions.RequestException as e:
+            write_out("  ❌ Error loading ASpace record. Continuing to next AO record.")
             continue
 
         # convert response to json object
@@ -259,16 +259,16 @@ def main():
             archival_object_json_raw = requests.get(ao_record_url, headers=headers)
             archival_object_json_raw.raise_for_status()
             write_out("  ✓ found AO object")
-        except requests.exceptions.RequestException as e:
-            write_out("  ❌ Error loading ASpace record. Continuing to next AO record.")
-            continue
         except requests.exceptions.Timeout as e:
             write_out("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN? Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
             continue
         except requests.exceptions.HTTPError as e:
             write_out("  ❌ Caught HTTP error. Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
+            continue
+        except requests.exceptions.RequestException as e:
+            write_out("  ❌ Error loading ASpace record. Continuing to next AO record.")
             continue
 
         # convert response to json object
@@ -446,16 +446,16 @@ def main():
         try:
             dig_obj_post_raw  = requests.post(ASPACE_URL + '/repositories/2/digital_objects', headers=headers, data=dig_obj_data)
             dig_obj_post_raw.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            write_out("  ❌ Error posting DAO record. Continuing to next record.")
-            continue
         except requests.exceptions.Timeout as e:
             write_out("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN? Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
             continue
         except requests.exceptions.HTTPError as e:
             write_out("  ❌ Caught HTTP error. Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
+            continue
+        except requests.exceptions.RequestException as e:
+            write_out("  ❌ Error posting DAO record. Continuing to next record.")
             continue
 
         # convert response to json object
@@ -501,16 +501,16 @@ def main():
         try:
             archival_object_update_raw = requests.post(ASPACE_URL + archival_object_uri, headers=headers, data=archival_object_data)
             archival_object_update_raw.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            write_out("  ❌ Error updating AO record. Continuing to next AO record.")
-            continue
         except requests.exceptions.Timeout as e:
             write_out("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN? Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
             continue
         except requests.exceptions.HTTPError as e:
             write_out("  ❌ Caught HTTP error. Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
+            continue
+        except requests.exceptions.RequestException as e:
+            write_out("  ❌ Error updating AO record. Continuing to next AO record.")
             continue
 
         # convert response to json object
@@ -560,18 +560,18 @@ def main():
             try:
                 dig_obj_post_raw = requests.post(ASPACE_URL + '/repositories/2/digital_object_components', headers=headers, data=dig_obj_data)
                 dig_obj_post_raw.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                write_out("    ❌ Error creating DAO component record. Continuing to next DAO component record.")
-                bad_dao_records.append(file_name)
-                continue
             except requests.exceptions.Timeout as e:
                 write_out("    ❌ Timeout error. Is the server running, or do you need to connect through a VPN? Continuing to next DAO component record.")
-                write_out(e)
+                write_out(str(e))
                 bad_dao_records.append(file_name)
                 continue
             except requests.exceptions.HTTPError as e:
                 write_out("    ❌ Caught HTTP error. Continuing to next DAO component record.")
-                write_out(e)
+                write_out(str(e))
+                bad_dao_records.append(file_name)
+                continue
+            except requests.exceptions.RequestException as e:
+                write_out("    ❌ Error creating DAO component record. Continuing to next DAO component record.")
                 bad_dao_records.append(file_name)
                 continue
 
@@ -630,11 +630,11 @@ def main():
             continue
         except requests.exceptions.Timeout as e:
             write_out("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN? Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
             continue
         except requests.exceptions.HTTPError as e:
             write_out("  ❌ Caught HTTP error. Continuing to next AO record.")
-            write_out(e)
+            write_out(str(e))
             continue
 
         write_out("  ✓ fetched METS metadata")
