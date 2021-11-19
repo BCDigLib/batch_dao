@@ -147,12 +147,25 @@ def main():
     # }
 
     files_listing = dict()
-    for key, values in tech_data.items():               # "BC2001_074_64862_0000.tif"
+    for key, values in tech_data.items():               #
+
+        # Most file names are in the format: "BC2001_074_64862_0000.tif", but some are in the format
+        # "bc-2001-074_64862_0000.tif"
+
         # integer in the line below may need updating 
         # for items with differently formatted CUIs
-        cutoff = key.replace('_', "|", 2).find('_')     # "BC2001|074|64862_0000.tif"
-                                                        #                  ^
-        short_name = key[0:cutoff]                      # "BC2001_074_64862"
+
+        normalized_key = key.replace('bc', 'BC')                   # "BC-2000-178_15087_0001.tif"
+
+        # Handle "BC-" IDs
+        normalized_key = normalized_key.replace('BC-', 'BC')       # "BC2000-178_15087_0001.tif"
+
+        # Replace dashes with underscores
+        normalized_key = normalized_key.replace('-', '_')          # "BC2000_178_15087_0001.tif"
+
+        cutoff = normalized_key.replace('_', "|", 2).find('_')     # "BC2001|074|64862_0000.tif"
+        #                                                                             ^
+        short_name = normalized_key[0:cutoff]                      # "BC2001_074_64862"
 
         # add short_name to dictionary
         if short_name not in files_listing:
