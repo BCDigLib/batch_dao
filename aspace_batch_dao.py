@@ -155,7 +155,7 @@ def main():
         # integer in the line below may need updating 
         # for items with differently formatted CUIs
 
-        normalized_key = key.replace('bc', 'BC')                   # "BC-2000-178_15087_0001.tif"
+        normalized_key = key.upper()                               # "BC-2000-178_15087_0001.tif"
 
         # Handle "BC-" IDs
         normalized_key = normalized_key.replace('BC-', 'BC')       # "BC2000-178_15087_0001.tif"
@@ -255,6 +255,10 @@ def main():
             continue
 
         # get the URI of the AO
+        if len(lookup['archival_objects']) > 1:
+            write_out("  ❌ Multiple archival_objects with ref id %s. Make sure ref ids are unique." % id_ref)
+            continue
+
         try:
             archival_object_uri  = lookup['archival_objects'][0]['ref']
             write_out("  ✓ found AO URI: %s" % archival_object_uri)
