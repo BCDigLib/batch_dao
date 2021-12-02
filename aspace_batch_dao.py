@@ -439,7 +439,7 @@ def main():
                     'jsonmodel_type': 'note_digital_object'
                 }
             ], 
-            'dates': date_json,
+            'dates': [date_json],
             'linked_agents': agent_data, 
             'subjects': get_genre_type(genre)
         }
@@ -678,77 +678,58 @@ def main():
 
 # put date json creation in a separate function because different types need different handling.
 def create_date_json(jsontext, itemid, collection_dates):
-    if "single" in jsontext['dates'][0]['date_type']:
-        try:
-            start_date = jsontext['dates'][0]['begin']
-        except KeyError:
-            write_out(
-                "Item " + itemid + " has a single-type date with no start value. Please check the metadata & try again")
-            sys.exit()
-        try:
-            expression = jsontext['dates'][0]['expression']
-        except KeyError:
-            expression = start_date
-        date_json = [
-            {
-                'begin': start_date, 
-                'date_type': 'single', 
-                'expression': expression, 
-                'label': 'creation', 
+    first_date = jsontext['dates'][0]
+
+    # Beginning and end of date range.
+    begin = first_date['begin'] if 'begin' in first_date else None
+    end = first_date['end'] if 'end' in first_date else None
+
+    # Boolean flags to assess date structure.
+    has_expression = 'expression' in first_date
+    is_undated = has_expression and 'undated' in first_date['expression']
+    is_single = 'single' in first_date['date_type']
+
+    # Filter out invalid dates.
+    if not begin and not has_expression:
+        write_out(itemid + " has no start date or date expression. Please check the metadata and try again.")
+        sys.exit()
+
+    if not begin and not is_undated:
+        write_out(itemid + " has no start date and date expression is not 'undated'. "
+                           "Please check the metadata and try again.")
+        sys.exit()
+
+    if begin and not end:
+        write_out("Item " + itemid + " has no end date. Please check the metadata & try again.")
+        sys.exit()
+
+    # Set default begin and end dates if 'undated'.
+    if is_undated:
+        begin = collection_dates[0] if not begin else begin
+        end = collection_dates[1] if not end else end
+
+    # Build expression text.
+    if has_expression:
+        expression = first_date['expression']
+    elif is_single:
+        expression = begin
+    elif end in begin:
+        expression = begin
+    else:
+        expression = begin + "-" + end
+
+    date_json = {
+                'begin': begin,
+                'date_type': first_date['date_type'],
+                'expression': expression,
+                'label': 'creation',
                 'jsonmodel_type': 'date'
-            }
-        ]
-        return date_json
-    elif "single" not in jsontext['dates'][0]['date_type']:
-        date_type = jsontext['dates'][0]['date_type']
-        try:
-            start_date = jsontext['dates'][0]['begin']
-        except KeyError:
-            try:
-                expression = jsontext['dates'][0]['expression']
-            except KeyError:
-                write_out(itemid + " has no start date or date expression. Please check the metadata and try again.")
-                sys.exit()
-            if "undated" in expression:
-                start_date = collection_dates[0]
-                end_date = collection_dates[1]
-                date_json = [
-                    {
-                        'begin': start_date, 
-                        'end': end_date, 
-                        'date_type': date_type, 
-                        'expression': expression,
-                        'label': 'creation', 
-                        'jsonmodel_type': 'date'
-                    }
-                ]
-                return date_json
-            else:
-                write_out(itemid + " has no start date and date expression is not 'undated'. Please check the metadata and try again")
-                sys.exit()
-        try:
-            end_date = jsontext['dates'][0]['end']
-        except KeyError:
-            write_out("Item " + itemid + " has no end date. Please check the metadata & try again")
-            sys.exit()
-        try:
-            expression = jsontext['dates'][0]['expression']
-        except KeyError:
-            if end_date in start_date:
-                expression = start_date
-            else:
-                expression = start_date + "-" + end_date
-        date_json = [
-            {
-                'begin': start_date, 
-                'end': end_date, 
-                'date_type': date_type, 
-                'expression': expression, 
-                'label': 'creation', 
-                'jsonmodel_type': 'date'
-            }
-        ]
-        return date_json
+    }
+
+    if not is_single:
+        date_json['end'] = end
+
+    return date_json
 
 
 # Sets an Aspace instance type for the DAO based on the physical instance of the AO
