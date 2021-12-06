@@ -19,6 +19,18 @@ import sys
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+from typing import Union
+
+# read in secrets from .env file
+load_dotenv()
+
+ASPACE_URL = os.getenv('ASPACE_URL')
+ASPACE_USERNAME = os.getenv('ASPACE_USERNAME')
+ASPACE_PASSWORD = os.getenv('ASPACE_PASSWORD')
+
+if ASPACE_URL is None or ASPACE_USERNAME is None or ASPACE_PASSWORD is None:
+    write_out("Error loading .env file! Exiting.")
+    sys.exit()
 
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -71,17 +83,6 @@ def main():
     #
     # Collect ASpace session token
     #
-
-    # read in secrets from .env file
-    load_dotenv()
-
-    ASPACE_URL      = os.getenv('ASPACE_URL')
-    ASPACE_USERNAME = os.getenv('ASPACE_USERNAME')
-    ASPACE_PASSWORD = os.getenv('ASPACE_PASSWORD')
-
-    if ASPACE_URL is None or ASPACE_USERNAME is None or ASPACE_PASSWORD is None:
-        write_out("Error loading .env file! Exiting.")
-        sys.exit()
 
     # log into ASpace and gather session info
     try:
@@ -209,7 +210,7 @@ def main():
 
     for index, line in enumerate(ead_lines):
         try:
-            process_digital_archival_object(ASPACE_URL, files_listing, format_note, headers, index, line, tech_data)
+            process_digital_archival_object(files_listing, format_note, headers, index, line, tech_data)
         except InvalidEADRecordError as e:
             write_out(str(e))
 
@@ -220,7 +221,7 @@ def main():
     write_out("elasped time: %s\n" % (end_now - start_now) )
 
 
-def process_digital_archival_object(aspace_url, files_listing, format_note, headers, index, line, tech_data):
+def process_digital_archival_object(files_listing, format_note, headers, index, line, tech_data):
     """Reads a single DAO and adds it to ArchiveSpace
     """
     # data from each line in the ead_lines file
@@ -238,7 +239,7 @@ def process_digital_archival_object(aspace_url, files_listing, format_note, head
     # look up AO record by ref_id pulled from EAD
     params = {'ref_id[]': id_ref}
     # define AO record URL
-    ao_record_url = aspace_url + '/repositories/2/find_by_id/archival_objects'
+    ao_record_url = ASPACE_URL + '/repositories/2/find_by_id/archival_objects'
     write_out("⋅ fetching AO by ref_id: %s" % id_ref)
 
     # fetch record
@@ -269,7 +270,7 @@ def process_digital_archival_object(aspace_url, files_listing, format_note, head
         raise InvalidEADRecordError("  ❌ Could not find ['archival_objects'][0]['ref'] value."
                                     "Continuing to next AO record.")
     # define AO record URL
-    ao_record_url = aspace_url + archival_object_uri
+    ao_record_url = ASPACE_URL + archival_object_uri
     write_out("⋅ using AO URI to fetch individual AO record")
     write_out("    [using AO API url: %s]" % ao_record_url)
     # get the full AO json representation
@@ -436,7 +437,7 @@ def process_digital_archival_object(aspace_url, files_listing, format_note, head
     write_out("⋅ creating DAO")
     # next, post the DAO
     try:
-        dig_obj_post_raw = requests.post(aspace_url + '/repositories/2/digital_objects', headers=headers,
+        dig_obj_post_raw = requests.post(ASPACE_URL + '/repositories/2/digital_objects', headers=headers,
                                          data=dig_obj_data)
         dig_obj_post_raw.raise_for_status()
     except requests.exceptions.Timeout as e:
@@ -481,7 +482,7 @@ def process_digital_archival_object(aspace_url, files_listing, format_note, head
     # post the AO with an updated DAO instance
     #
     try:
-        archival_object_update_raw = requests.post(aspace_url + archival_object_uri, headers=headers,
+        archival_object_update_raw = requests.post(ASPACE_URL + archival_object_uri, headers=headers,
                                                    data=archival_object_data)
         archival_object_update_raw.raise_for_status()
     except requests.exceptions.Timeout as e:
@@ -531,7 +532,7 @@ def process_digital_archival_object(aspace_url, files_listing, format_note, head
         }
 
         try:
-            dig_obj_component_uri = post_digital_object_component(aspace_url, dig_obj_component, headers)
+            dig_obj_component_uri = post_digital_object_component(dig_obj_component, headers)
             completed_dao_component_records += 1
             
             # Success adding the digital object!
@@ -551,7 +552,7 @@ def process_digital_archival_object(aspace_url, files_listing, format_note, head
         write_out(' '.join(map(str, bad_dao_records)))
 
 
-def post_digital_object_component(aspace_url: str, dig_obj_component: dict, headers: dict) -> Union[str, None]:
+def post_digital_object_component(dig_obj_component: dict, headers: dict) -> Union[str, None]:
     """Post a single digital object component to ASpace
 
     Post the component to ASpace and return the new component's URI. Most of this function is
@@ -561,7 +562,7 @@ def post_digital_object_component(aspace_url: str, dig_obj_component: dict, head
     
     # post the DAO component
     try:
-        dig_obj_post_raw = requests.post(aspace_url + '/repositories/2/digital_object_components', headers=headers,
+        dig_obj_post_raw = requests.post(ASPACE_URL + '/repositories/2/digital_object_components', headers=headers,
                                          data=component_data)
         dig_obj_post_raw.raise_for_status()
     except requests.exceptions.Timeout as e:
