@@ -8,44 +8,43 @@
 # Also imports technical metadata from an exif file and stores it on the pertinent Digital Object Components.
 # METS exports for every created Digital Object are also saved off in a folder labeled "METS".
 
-# USAGE: 
-#    aspace_batch_dao.py tab_file.txt fits_file.json
-# where tab_file.txt is the output of aspace_ead_to_tab.xsl
-# and fits_file.json is the output of running fit-to-json.xsl over a FITS xml file.
+# usage:
+#    aspace_batch_dao.py [-h] {DEV|STAGE|PROD} tab_file.txt fits_file.json
+#
+# positional arguments:
+#  {DEV,STAGE,PROD}  targeted ArchivesSpace environment
+#  tab_file.tsv      output of aspace_ead_to_tab.xsl
+#  fits_file.json    output of running fit-to-json.xsl over a FITS xml file
+
+# optional arguments:
+#  -h, --help        show this help message and exit
 
 import requests
 import json
 import sys
 import os
+import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 from typing import Union
 
-usage_statement = "usage: aspace_batch_dao.py [-h] [DEV|STAGE|PROD] tab_file.tsv fits_file.json"
-
-#
-# Check options
-#
-opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
-
-if "-h" in opts or "--help" in opts:
-    print(usage_statement)
-    sys.exit()
+# Parse command line arguments. Handles input validation and opening files.
+parser = argparse.ArgumentParser()
+parser.add_argument("target_environment", choices=["DEV", "STAGE", "PROD"], help="targeted ArchivesSpace environment")
+parser.add_argument("tab_file", help="tab file generated from EAD", metavar="tab_file.tsv",
+                    type=argparse.FileType('r'))
+parser.add_argument("fits_techmd_file", help="FITS file in JSON format", metavar="fits_file.json",
+                    type=argparse.FileType('r'))
+args = parser.parse_args()
 
 # read in secrets from .env file
 load_dotenv()
 
 # Load target ASpace environment from arguments. Set values for each target in the users
 # env as ASPACE_DEV_URL, ASPACE_STAGE_USERNAME, ASPACE_PROD_PASSWORD, etc.
-try:
-    TARGET_ENVIRONMENT = sys.argv[1]
-except IndexError:
-    print("Please use the correct number of arguments.\n" + usage_statement)
-    sys.exit(1)
-
-ASPACE_URL = os.getenv('ASPACE_' + TARGET_ENVIRONMENT + '_URL')
-ASPACE_USERNAME = os.getenv('ASPACE_' + TARGET_ENVIRONMENT + '_USERNAME')
-ASPACE_PASSWORD = os.getenv('ASPACE_' + TARGET_ENVIRONMENT + '_PASSWORD')
+ASPACE_URL = os.getenv('ASPACE_' + args.target_environment + '_URL')
+ASPACE_USERNAME = os.getenv('ASPACE_' + args.target_environment + '_USERNAME')
+ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -78,30 +77,13 @@ def main():
     # Check arguments
     #
 
-    # check to see if we have the correct number of arguments
-    if len(sys.argv) != 4:
-        write_out("Please use the correct number of arguments.\n" + usage_statement)
-        sys.exit(1)
-
     # next, make sure we have proper target environment variables set
     if ASPACE_URL is None or ASPACE_USERNAME is None or ASPACE_PASSWORD is None:
         write_out("Error loading .env file! Exiting.")
         sys.exit(1)
 
-    # next, check if second argument exists as a file
-    tab_file = sys.argv[2]
-    if not os.path.isfile(tab_file):
-        write_out("The file '%s' does not exist. Exiting." % tab_file)
-        sys.exit(1)
-
-    # next, check if third argument exists as a file
-    fits_techmd_file = sys.argv[3]
-    if not os.path.isfile(fits_techmd_file):
-        write_out("The file '%s' does not exist. Exiting." % fits_techmd_file)
-        sys.exit(1)
-
     # If we are in production, prompt the user to confirm
-    if TARGET_ENVIRONMENT == 'PROD':
+    if args.target_environment == 'PROD':
         if not prompt_yes_no("You are running this script in production. Proceed?"):
             write_out("Exiting.")
             sys.exit()
@@ -140,25 +122,16 @@ def main():
     format_note = "reformatted digital"
 
     #
-    # Open the FITS file and read in its contents. This dictionary is used for techMD calls, also create another dict
+    # Load FITS data from JSON file. This dictionary is used for techMD calls, also create another dict
     # for file lists.
     #
-
-    # read in fits_techmd_file: sys.argv[2]
     try:
-        tech_in = open(fits_techmd_file, 'r')
-    except OSError as e:
-        write_out("❌ Could not open/read file: %s"  % fits_techmd_file)
-        raise SystemExit(e)
-
-    # load file as a json object
-    try:
-        tech_data = json.load(tech_in)
+        tech_data = json.load(args.fits_techmd_file)
     except ValueError as e:
-        write_out("❌ Could not load json file: %s"  % fits_techmd_file)
+        write_out("❌ Could not load json file: %s" % args.fits_techmd_file.name)
         raise SystemExit(e)
 
-    write_out("✓ Read in fits_techmd_file: %s" % fits_techmd_file)
+    write_out("✓ Read in fits_techmd_file: %s" % args.fits_techmd_file.name)
 
     # generate a dictionary of file names for each group of images.
     # this is dependent on a standard naming schema
@@ -200,26 +173,17 @@ def main():
         elif short_name in files_listing:
             files_listing[short_name].append(key)
 
-
     #
-    # Open the TSV file created with aspace_ead_to_tab.xsl to gather variables and make the API calls
+    # Read the TSV file created with aspace_ead_to_tab.xsl to gather variables and make the API calls
     #
 
-    # read in tab_file: sys.argv[1]
     try:
-        tab_in = open(tab_file, 'r')
-    except OSError as e:
-        write_out("❌ Could not open/read file: %s"  % tab_file)
-        raise SystemExit(e)
-
-    # load file as a json object
-    try:
-        ead_data = tab_in.read()
+        ead_data = args.tab_file.read()
     except ValueError as e:
-        write_out("❌ Could not load json file: %s"  % tab_file)
+        write_out("❌ Could not load json file: %s" % args.tab_file.name)
         raise SystemExit(e)
 
-    write_out("✓ Read in tab_file: %s" % tab_file)
+    write_out("✓ Read in tab_file: %s" % args.tab_file.name)
 
     # split file into lines
     ead_lines = ead_data.splitlines()
