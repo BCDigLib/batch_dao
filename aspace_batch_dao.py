@@ -413,7 +413,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         ],
         'dates': [date_json],
         'linked_agents': agent_data,
-        'subjects': get_genre_type(genre)
+        'subjects': [{"ref": get_genre_type(genre)}]
     }
     # format the JSON
     dig_obj_data = json.dumps(dig_obj_component)
@@ -676,7 +676,7 @@ def get_resource_type(ao_json, item_id):
 # Sets a linked subject for the DAO to hold the Digital Commonwealth genre term based on the value set in the EAD-to-tab
 # XSL. This mapping is based on database IDs for subjects in BC's production Aspace server and WILL NOT WORK for other
 # schools/servers.
-def get_genre_type(dc_genre_term):
+def get_genre_type(dc_genre_term: str) -> str:
     genre_term_to_subject_code = {
         "Albums": "656",
         "Books": "657",
@@ -703,7 +703,7 @@ def get_genre_type(dc_genre_term):
 
     try:
         subject_code = genre_term_to_subject_code[dc_genre_term]
-        return [{"ref": "/subjects/" + subject_code}]
+        return "/subjects/" + subject_code
     except KeyError:
         write_out(dc_genre_term + " is an invalid or improperly formatted genre term. "
                                   "Please check the Digital Commonwealth documentation and try again.")
