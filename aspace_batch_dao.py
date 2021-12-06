@@ -21,16 +21,31 @@ from datetime import datetime
 from dotenv import load_dotenv
 from typing import Union
 
+usage_statement = "usage: aspace_batch_dao.py [-h] [DEV|STAGE|PROD] tab_file.tsv fits_file.json"
+
+#
+# Check options
+#
+opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
+
+if "-h" in opts or "--help" in opts:
+    print(usage_statement)
+    sys.exit()
+
 # read in secrets from .env file
 load_dotenv()
 
-ASPACE_URL = os.getenv('ASPACE_URL')
-ASPACE_USERNAME = os.getenv('ASPACE_USERNAME')
-ASPACE_PASSWORD = os.getenv('ASPACE_PASSWORD')
+# Load target ASpace environment from arguments. Set values for each target in the users
+# env as ASPACE_DEV_URL, ASPACE_STAGE_USERNAME, ASPACE_PROD_PASSWORD, etc.
+try:
+    TARGET_ENVIRONMENT = sys.argv[1]
+except IndexError:
+    print("Please use the correct number of arguments.\n" + usage_statement)
+    sys.exit(1)
 
-if ASPACE_URL is None or ASPACE_USERNAME is None or ASPACE_PASSWORD is None:
-    write_out("Error loading .env file! Exiting.")
-    sys.exit()
+ASPACE_URL = os.getenv('ASPACE_' + TARGET_ENVIRONMENT + '_URL')
+ASPACE_USERNAME = os.getenv('ASPACE_' + TARGET_ENVIRONMENT + '_USERNAME')
+ASPACE_PASSWORD = os.getenv('ASPACE_' + TARGET_ENVIRONMENT + '_PASSWORD')
 
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -64,21 +79,32 @@ def main():
     #
 
     # check to see if we have the correct number of arguments
-    if len(sys.argv) != 3:
-        write_out("Please use the correct number of arguments.\nUsage: aspace_batch_dao.py tab_file.tsv fits_file.json")
-        sys.exit()
+    if len(sys.argv) != 4:
+        write_out("Please use the correct number of arguments.\n" + usage_statement)
+        sys.exit(1)
 
-    # next, check if first argument exists as a file
-    tab_file = sys.argv[1]
-    if not os.path.isfile(tab_file):
-        write_out("The file '%s' does not exist. Exiting." % tab_file)
-        sys.exit()
+    # next, make sure we have proper target environment variables set
+    if ASPACE_URL is None or ASPACE_USERNAME is None or ASPACE_PASSWORD is None:
+        write_out("Error loading .env file! Exiting.")
+        sys.exit(1)
 
     # next, check if second argument exists as a file
-    fits_techmd_file = sys.argv[2]
+    tab_file = sys.argv[2]
+    if not os.path.isfile(tab_file):
+        write_out("The file '%s' does not exist. Exiting." % tab_file)
+        sys.exit(1)
+
+    # next, check if third argument exists as a file
+    fits_techmd_file = sys.argv[3]
     if not os.path.isfile(fits_techmd_file):
         write_out("The file '%s' does not exist. Exiting." % fits_techmd_file)
-        sys.exit()
+        sys.exit(1)
+
+    # If we are in production, prompt the user to confirm
+    if TARGET_ENVIRONMENT == 'PROD':
+        if not prompt_yes_no("You are running this script in production. Proceed?"):
+            write_out("Exiting.")
+            sys.exit()
 
     #
     # Collect ASpace session token
@@ -610,16 +636,16 @@ def create_date_json(jsontext, itemid, collection_dates):
     # Filter out invalid dates.
     if not begin and not has_expression:
         write_out(itemid + " has no start date or date expression. Please check the metadata and try again.")
-        sys.exit()
+        sys.exit(1)
 
     if not begin and not is_undated:
         write_out(itemid + " has no start date and date expression is not 'undated'. "
                            "Please check the metadata and try again.")
-        sys.exit()
+        sys.exit(1)
 
     if begin and not end:
         write_out("Item " + itemid + " has no end date. Please check the metadata & try again.")
-        sys.exit()
+        sys.exit(1)
 
     # Set default begin and end dates if 'undated'.
     if is_undated:
@@ -678,60 +704,46 @@ def get_resource_type(ao_json, item_id):
     elif instance_type == "Scrapbooks":         # TODO: be sure to revisit this value and make sure it maps to the ASpace instance type
         return "text"
     else:
-        write_out(item_id + " can't be assigned a typeOfResource based on the physical istance. Please check the metadata & try again.")
-        sys.exit()
+        write_out(item_id + " can't be assigned a typeOfResource based on the physical istance. "
+                            "Please check the metadata & try again.")
+        sys.exit(1)
 
 
 # Sets a linked subject for the DAO to hold the Digital Commonwealth genre term based on the value set in the EAD-to-tab
 # XSL. This mapping is based on database IDs for subjects in BC's production Aspace server and WILL NOT WORK for other
 # schools/servers.
 def get_genre_type(dc_genre_term):
-    if dc_genre_term == "Albums":
-        return [{"ref": "/subjects/656"}]
-    elif dc_genre_term == "Books":
-        return [{"ref": "/subjects/657"}]
-    elif dc_genre_term == "Cards":
-        return [{"ref": "/subjects/658"}]
-    elif dc_genre_term == "Correspondence":
-        return [{"ref": "/subjects/669"}]
-    elif dc_genre_term == "Documents":
-        return [{"ref": "/subjects/659"}]
-    elif dc_genre_term == "Drawings":
-        return [{"ref": "/subjects/660"}]
-    elif dc_genre_term == "Ephemera":
-        return [{"ref": "/subjects/661"}]
-    elif dc_genre_term == "Manuscripts":
-        return [{"ref": "/subjects/655"}]
-    elif dc_genre_term == "Maps":
-        return [{"ref": "/subjects/662"}]
-    elif dc_genre_term == "Motion pictures":
-        return [{"ref": "/subjects/668"}]
-    elif dc_genre_term == "Music":
-        return [{"ref": "/subjects/670"}]
-    elif dc_genre_term == "Musical notation":
-        return [{"ref": "/subjects/671"}]
-    elif dc_genre_term == "Newspapers":
-        return [{"ref": "/subjects/672"}]
-    elif dc_genre_term == "Objects":
-        return [{"ref": "/subjects/673"}]
-    elif dc_genre_term == "Paintings":
-        return [{"ref": "/subjects/663"}]
-    elif dc_genre_term == "Periodicals":
-        return [{"ref": "/subjects/664"}]
-    elif dc_genre_term == "Photographs":
-        return [{"ref": "/subjects/665"}]
-    elif dc_genre_term == "Posters":
-        return [{"ref": "/subjects/666"}]
-    elif dc_genre_term == "Prints":
-        return [{"ref": "/subjects/667"}]
-    elif dc_genre_term == "Scrapbooks":         # TODO: verify this is the correct subject object ID
-        return [{"ref": "/subjects/373"}]
-    elif dc_genre_term == "Sound recordings":
-        return [{"ref": "/subjects/674"}]
-    else:
-        write_out(dc_genre_term + " is an invalid or improperly formatted genre term. Please check the Digital Commonwealth documentation and try again.")
-        sys.exit()
+    genre_term_to_subject_code = {
+        "Albums": "656",
+        "Books": "657",
+        "Cards": "658",
+        "Correspondence": "669",
+        "Documents": "659",
+        "Drawings": "660",
+        "Ephemera": "661",
+        "Manuscripts": "655",
+        "Maps": "662",
+        "Motion pictures": "668",
+        "Music": "670",
+        "Musical notation": "671",
+        "Newspapers": "672",
+        "Objects": "673",
+        "Paintings": "663",
+        "Periodicals": "664",
+        "Photographs": "665",
+        "Posters": "666",
+        "Prints": "667",
+        "Scrapbooks": "373",
+        "Sound recordings": "674"
+    }
 
+    try:
+        subject_code = genre_term_to_subject_code[dc_genre_term]
+        return [{"ref": "/subjects/" + subject_code}]
+    except KeyError:
+        write_out(dc_genre_term + " is an invalid or improperly formatted genre term. "
+                                  "Please check the Digital Commonwealth documentation and try again.")
+        sys.exit(1)
 
 # builds a [file version] segment for the Digital object component json that contains appropriate tech metadata from the
 # FITS file. HARD CODED ASSUMPTIONS: Checksum type = MD5
@@ -901,9 +913,24 @@ def get_file_type(filename):
     elif 'mov' in extension:
         value = 'video/quicktime'
     else:
-        write_out("File extension for " + filename + " not recognized. Please reformat files or add extension to get_file_type function")
-        sys.exit()
+        write_out("File extension for " + filename + " not recognized. "
+                  "Please reformat files or add extension to get_file_type function")
+        sys.exit(1)
     return value
+
+def prompt_yes_no(question: str):
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
+    default = "n"
+
+    while True:
+        sys.stdout.write(question + " [y/N] ")
+        choice = input().lower()
+        if default is not None and choice == "":
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 class InvalidEADRecordError(Exception):
     pass
