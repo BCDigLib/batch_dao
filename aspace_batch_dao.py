@@ -18,6 +18,7 @@
 
 # optional arguments:
 #  -h, --help        show this help message and exit
+import re
 
 import requests
 import json
@@ -177,11 +178,20 @@ def main():
         #                                                                             ^
         short_name = normalized_key[0:cutoff]                      # "BC2001_074_64862"
 
-        # add short_name to dictionary
+        # Some IDs have underscores after th 'BC', e.g. 'BC_2000' as opposed to 'BC2000'
+        # Accept both options.
+        short_name_with_underscore = re.sub('^BC([0-9])', r'BC_\1', short_name)
+
+        # add short_name with and without underscores to dictionary
         if short_name not in files_listing:
             files_listing[short_name] = [key]
-        elif short_name in files_listing:
+        else:
             files_listing[short_name].append(key)
+
+        if short_name_with_underscore not in files_listing:
+            files_listing[short_name_with_underscore] = [key]
+        else:
+            files_listing[short_name_with_underscore].append(key)
 
     #
     # Read the TSV file created with aspace_ead_to_tab.xsl to gather variables and make the API calls
