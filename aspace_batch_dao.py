@@ -631,8 +631,9 @@ def create_date_json(jsontext, itemid, collection_dates):
         write_out("Item " + itemid + " has no end date. Please check the metadata & try again.")
         sys.exit(1)
 
-    # Set default begin and end dates if 'undated'.
-    if is_undated:
+    # Set default begin and end dates if 'undated' and there are collection
+    # dates.
+    if is_undated and len(collection_dates) > 1:
         begin = collection_dates[0] if not begin else begin
         end = collection_dates[1] if not end else end
 
@@ -647,12 +648,14 @@ def create_date_json(jsontext, itemid, collection_dates):
         expression = begin + "-" + end
 
     date_json = {
-                'begin': begin,
                 'date_type': first_date['date_type'],
                 'expression': expression,
                 'label': 'creation',
                 'jsonmodel_type': 'date'
     }
+
+    if begin:
+        date_json['begin'] = begin
 
     if not is_single:
         date_json['end'] = end
