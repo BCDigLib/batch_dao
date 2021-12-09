@@ -78,8 +78,18 @@ def main():
     #
 
     # next, make sure we have proper target environment variables set
-    if ASPACE_URL is None or ASPACE_USERNAME is None or ASPACE_PASSWORD is None:
-        write_out("Error loading .env file! Exiting.")
+    missing_vars = []
+
+    if not ASPACE_URL:
+        missing_vars.append("ASPACE_" + args.target_environment + "_URL")
+    if not ASPACE_USERNAME:
+        missing_vars.append("ASPACE_" + args.target_environment + "_USERNAME")
+    if not ASPACE_PASSWORD:
+        missing_vars.append("ASPACE_" + args.target_environment + "_PASSWORD")
+
+    if len(missing_vars) != 0:
+        missing_vars_string = ', '.join(missing_vars)
+        write_out("Missing required environment variables: %s. Exiting" % missing_vars_string)
         sys.exit(1)
 
     # If we are in production, prompt the user to confirm
