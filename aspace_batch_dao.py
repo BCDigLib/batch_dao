@@ -354,8 +354,19 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                                     " Check the FITS file and try again. Continuing to next AO record." % unique_id)
     write_out("    [number of file names pulled from FITS dictionary matching unique ID: %s]" % len(file_names))
     write_out("  ✓ first file name pulled from FITS dictionary matching unique ID: %s" % file_names[0])
+
     # derive resource type
-    resource_type = get_resource_type(archival_object_json, id_ref)
+    try:
+        resource_type = get_resource_type(archival_object_json['instances'])
+    except KeyError:
+        write_out(id_ref + " can't be assigned a typeOfResource based on the physical instance. "
+                           "Please check the metadata & try again.")
+        sys.exit(1)
+    except IndexError:
+        write_out(id_ref + " can't be assigned a typeOfResource based on the physical instance (%s). "
+                           "Please check the metadata & try again." % archival_object_json['instances'])
+        sys.exit(1)
+
     write_out("⋅ deriving resource type:")
     write_out("  ✓ %s" % resource_type)
     # derive file type
@@ -662,39 +673,27 @@ def create_date_json(jsontext, itemid, collection_dates):
 
     return date_json
 
+def get_resource_type(instances: list) -> str:
 
-# Sets an Aspace instance type for the DAO based on the physical instance of the AO
-def get_resource_type(ao_json, item_id):
-    instance_type = ""
-    for instance in ao_json['instances']:
-        if 'digital' in instance['instance_type']:
-            pass
-        else:
-            instance_type = instance['instance_type']
-            break
-    if instance_type == "text" or instance_type == "books":
-        return "text"
-    elif instance_type == "maps":
-        return "cartographic"
-    elif instance_type == "notated music":
-        return "notated_music"
-    elif instance_type == "audio":
-        return "sound_recording"
-    elif instance_type == "graphic_materials" or instance_type == "photo":
-        return "still_image"
-    elif instance_type == "moving_images":
-        return "moving_image"
-    elif instance_type == "realia":
-        return "three dimensional object"
-    elif instance_type == "mixed_materials":
-        return "mixed_materials"
-    elif instance_type == "Scrapbooks":         # TODO: be sure to revisit this value and make sure it maps to the ASpace instance type
-        return "text"
-    else:
-        write_out(item_id + " can't be assigned a typeOfResource based on the physical istance. "
-                            "Please check the metadata & try again.")
-        sys.exit(1)
+    # We're looking for the original non-digital resource type.
+    non_digital_resources = list(filter(lambda instance: 'digital' not in instance['instance_type'], instances))
 
+    # Recognized instance types mapped to correct ASpace type.
+    instance_type_map = {
+        "text": "text",
+        "books": "text",
+        "scrapbooks": "text",
+        "maps": "cartographic",
+        "notated music": "notated_music",
+        "audio": "sound_recording",
+        "graphic_materials": "still_image",
+        "photo": "still_image",
+        "realia": "three dimensional object",
+        "mixed_materials": "mixed_materials"
+    }
+
+    first_instance_type = non_digital_resources[0]['instance_type'].lower()
+    return instance_type_map[first_instance_type]
 
 # Sets a linked subject for the DAO to hold the Digital Commonwealth genre term based on the value set in the EAD-to-tab
 # XSL. This mapping is based on database IDs for subjects in BC's production Aspace server and WILL NOT WORK for other
