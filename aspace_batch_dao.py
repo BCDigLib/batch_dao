@@ -47,6 +47,8 @@ ASPACE_URL = os.getenv('ASPACE_' + args.target_environment + '_URL')
 ASPACE_USERNAME = os.getenv('ASPACE_' + args.target_environment + '_USERNAME')
 ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 
+ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM = "?resolve[]=digital_object"
+
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
 # create local LOGS output directory if it doesn't exist
@@ -280,7 +282,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         raise InvalidEADRecordError("  ❌ Could not find ['archival_objects'][0]['ref'] value."
                                     "Continuing to next AO record.")
     # define AO record URL
-    ao_record_url = ASPACE_URL + archival_object_uri
+    ao_record_url = ASPACE_URL + archival_object_uri + ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM
     write_out("⋅ using AO URI to fetch individual AO record")
     write_out("    [using AO API url: %s]" % ao_record_url)
     # get the full AO json representation
@@ -315,6 +317,36 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     except KeyError:
         raise InvalidEADRecordError("  ❌ Please make sure all items have a component unique ID before creating DAOs."
                                     "Continuing to next AO record.")
+   
+    # derive handle URI
+    handle_URI = 'http://hdl.handle.net/2345.2/%s' % unique_id
+    write_out("⋅ deriving handle URI for digital object:")
+    write_out("  ✓ %s" % handle_URI)
+
+    # look for existing digital_object_id IDs, if they exist
+    # instances/digital_object/_resolved/digital_object_id
+    #digital_object_ids = []
+    write_out("⋅ searching for existing digital object IDs:")
+    if "instances" in archival_object_json:
+        for instance_do in archival_object_json["instances"]:
+            try:
+                digital_object_id = instance_do["digital_object"]["_resolved"]["digital_object_id"]
+                write_out("  ✓ digital object ID found in this AO: %s" % digital_object_id)
+                #digital_object_ids.append(digital_object_id)
+                
+                # check if handle_URI matches digital_object_id
+                if digital_object_id == handle_URI:
+                    write_out("  ! digital object ID matches our derived handle URI: %s. Continuing to next AO record." % handle_URI)
+                    continue
+                else:
+                    write_out("  ✓ digital object ID doesn't match our derived handle URI")
+            except KeyError:
+                write_out("  ✓ no digital object ID found in this AO")
+                pass
+
+    #if not digital_object_ids:
+    #    write_out("  ✓ no digital object IDs found")
+    
     # look for title
     try:
         obj_title = archival_object_json['title']
@@ -382,10 +414,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     thumbnail_uri = 'https://iiif.bc.edu/%s.jp2/full/!200,200/0/default.jpg' % file_name_split[0]
     write_out("⋅ deriving thumbnail URI:")
     write_out("  ✓ %s" % thumbnail_uri)
-    # derive handle URI
-    handle_URI = 'http://hdl.handle.net/2345.2/%s' % unique_id
-    write_out("⋅ deriving handle URI:")
-    write_out("  ✓ %s" % handle_URI)
+
     # generate JSON object for creating DAO
     dig_obj_component = {
         'jsonmodel_type': 'digital_object',
