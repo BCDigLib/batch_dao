@@ -12,7 +12,7 @@
                 <xsl:when test="not(@audience='internal')">
                     <xsl:value-of select="."/>
                     <xsl:value-of select="$varTab"/>
-                    <xsl:value-of select="preceding-sibling::ead:unittitle"/>
+                    <xsl:value-of select="normalize-space(preceding-sibling::ead:unittitle)"/>
                     <xsl:value-of select="$varTab"/>
                     <xsl:text>Box </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='box']"/>
                     <xsl:choose>
