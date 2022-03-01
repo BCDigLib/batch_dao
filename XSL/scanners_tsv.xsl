@@ -5,6 +5,9 @@
     <xsl:variable name="varTab">
         <xsl:text>&#x9;</xsl:text>
     </xsl:variable>
+    <xsl:variable name="varReturn">
+        <xsl:text>&#xD;&#xA;</xsl:text>
+    </xsl:variable>
     <xsl:template match="/">
         <xsl:for-each select="//ead:did/ead:unitid">
             <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
@@ -25,8 +28,7 @@
                     </xsl:choose>
                     <xsl:value-of select="$varTab"/>
                     <xsl:value-of select="following-sibling::ead:unitdate/@normal"/>
-                    <xsl:text>
-</xsl:text>
+                    <xsl:value-of select="$varReturn"/>
                 </xsl:when>
             </xsl:choose>
             </xsl:if>
