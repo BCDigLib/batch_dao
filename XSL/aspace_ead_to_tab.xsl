@@ -24,7 +24,7 @@
         <!-- check if this EAD has children records -->
         <xsl:if test="//ead:dsc/ead:c">
             <xsl:for-each select="//ead:did/ead:unitid[not(@audience)]">
-                <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item'] or ancestor::ead:c[@level='series']" >
+                <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
                     <xsl:call-template name="DAO"/>
                 </xsl:if>
             </xsl:for-each>

@@ -5,6 +5,9 @@
     <xsl:variable name="varTab">
         <xsl:text>&#x9;</xsl:text>
     </xsl:variable>
+    <xsl:variable name="varReturn">
+        <xsl:text>&#xD;&#xA;</xsl:text>
+    </xsl:variable>
     <!-- Set language code at the start of a project. Should be 3-letter NISO encoding, typically 'eng' or 'zxx' -->
     <xsl:variable name="langCode">
         <xsl:text>eng</xsl:text>
@@ -42,7 +45,6 @@
         <xsl:value-of select="$DCGenre"/>
         <xsl:value-of select="$varTab"/>
         <xsl:value-of select="$typeOfResource"/>
-        <xsl:text>
-</xsl:text>
+        <xsl:value-of select="$varReturn"/>
     </xsl:template>
 </xsl:stylesheet>
