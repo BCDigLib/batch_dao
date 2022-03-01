@@ -21,10 +21,10 @@
         <xsl:text>text</xsl:text>
     </xsl:variable>
     <xsl:template match="/">
-        <!-- check if this EAD has file/item children -->
+        <!-- check if this EAD has children records -->
         <xsl:if test="//ead:dsc/ead:c">
             <xsl:for-each select="//ead:did/ead:unitid[not(@audience)]">
-                <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
+                <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item'] or ancestor::ead:c[@level='series']" >
                     <xsl:call-template name="DAO"/>
                 </xsl:if>
             </xsl:for-each>
