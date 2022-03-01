@@ -5,6 +5,9 @@
     <xsl:variable name="varTab">
         <xsl:text>&#x9;</xsl:text>
     </xsl:variable>
+    <xsl:variable name="varReturn">
+        <xsl:text>&#xD;&#xA;</xsl:text>
+    </xsl:variable>
     <!-- Set language code at the start of a project. Should be 3-letter NISO encoding, typically 'eng' or 'zxx' -->
     <xsl:variable name="langCode">
         <xsl:text>eng</xsl:text>
@@ -18,11 +21,20 @@
         <xsl:text>text</xsl:text>
     </xsl:variable>
     <xsl:template match="/">
-        <xsl:for-each select="//ead:did/ead:unitid[not(@audience)]">
-            <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
+        <!-- check if this EAD has file/item children -->
+        <xsl:if test="//ead:dsc/ead:c">
+            <xsl:for-each select="//ead:did/ead:unitid[not(@audience)]">
+                <xsl:if test="ancestor::ead:c[@level='file'] or ancestor::ead:c[@level='item']" >
+                    <xsl:call-template name="DAO"/>
+                </xsl:if>
+            </xsl:for-each>
+        </xsl:if>
+        <!-- check if this EAD is childless -->
+        <xsl:if test="not(//ead:dsc/ead:c)">
+            <xsl:for-each select="//ead:archdesc[@level='collection']/ead:did/ead:unitid">
                 <xsl:call-template name="DAO"/>
-            </xsl:if>
-        </xsl:for-each>
+            </xsl:for-each>
+        </xsl:if>
     </xsl:template>
     
     <xsl:template name="DAO">
@@ -42,7 +54,6 @@
         <xsl:value-of select="$DCGenre"/>
         <xsl:value-of select="$varTab"/>
         <xsl:value-of select="$typeOfResource"/>
-        <xsl:text>
-</xsl:text>
+        <xsl:value-of select="$varReturn"/>
     </xsl:template>
 </xsl:stylesheet>
