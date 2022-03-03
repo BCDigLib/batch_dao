@@ -48,7 +48,11 @@ ASPACE_URL = os.getenv('ASPACE_' + args.target_environment + '_URL')
 ASPACE_USERNAME = os.getenv('ASPACE_' + args.target_environment + '_USERNAME')
 ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 
+# URL parameter to expand the digital_object reference when loading an AO record
 ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM = "?resolve[]=digital_object"
+
+# set the handle URL prefix
+ASPACE_HANDLE_URL_PREFIX = "http://hdl.handle.net/2345.2/"
 
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -323,20 +327,18 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                                     "Continuing to next AO record.")
    
     # derive handle URI
-    handle_URI = 'http://hdl.handle.net/2345.2/%s' % unique_id
+    handle_URI = '%s%s' % (ASPACE_HANDLE_URL_PREFIX, unique_id)
     write_out("⋅ deriving handle URI for digital object:")
     write_out("  ✓ %s" % handle_URI)
 
     # look for existing digital_object_id IDs, if they exist
-    # instances/digital_object/_resolved/digital_object_id
-    #digital_object_ids = []
+    # json object structure: "instances": { ["digital_object": {"_resolved": {"digital_object_id"}}]}
     write_out("⋅ searching for existing digital object IDs:")
     if "instances" in archival_object_json:
         for instance_do in archival_object_json["instances"]:
             try:
                 digital_object_id = instance_do["digital_object"]["_resolved"]["digital_object_id"]
                 write_out("  ✓ digital object ID found in this AO: %s" % digital_object_id)
-                #digital_object_ids.append(digital_object_id)
                 
                 # check if handle_URI matches digital_object_id
                 if digital_object_id == handle_URI:
@@ -347,9 +349,6 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
             except KeyError:
                 write_out("  ✓ no digital object ID found in this AO")
                 pass
-
-    #if not digital_object_ids:
-    #    write_out("  ✓ no digital object IDs found")
     
     # look for title
     try:
