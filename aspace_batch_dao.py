@@ -36,6 +36,7 @@ parser.add_argument("tab_file", help="tab file generated from EAD", metavar="tab
                     type=argparse.FileType('r'))
 parser.add_argument("fits_techmd_file", help="FITS file in JSON format", metavar="fits_file.json",
                     type=argparse.FileType('r'))
+parser.add_argument('--dryrun', action='store_true', help="dry run; don't create or update any records")                    
 args = parser.parse_args()
 
 # read in secrets from .env file
@@ -79,6 +80,9 @@ def main():
     #
     # Check arguments
     #
+
+    if args.dryrun:
+        write_out("\n*** This is a dryrun, and no ASpace records will be created or updated ***\n")
 
     # next, make sure we have proper target environment variables set
     missing_vars = []
@@ -485,6 +489,12 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     # create DAO records
     #
     write_out("⋅ creating DAO")
+
+    # skip DAO creation if the --dryrun flag was set
+    if args.dryrun:
+        write_out("  ! Dry run: skipping DAO creation")
+        return True
+
     # next, post the DAO
     try:
         dig_obj_post_raw = requests.post(ASPACE_URL + '/repositories/2/digital_objects', headers=headers,
