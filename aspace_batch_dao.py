@@ -9,7 +9,7 @@
 # METS exports for every created Digital Object are also saved off in a folder labeled "METS".
 
 # usage:
-#    aspace_batch_dao.py [-h] {DEV|STAGE|PROD} tab_file.txt fits_file.json
+#    aspace_batch_dao.py [-h][--dryrun] {DEV|STAGE|PROD} tab_file.txt fits_file.json
 #
 # positional arguments:
 #  {DEV,STAGE,PROD}  targeted ArchivesSpace environment
@@ -18,6 +18,7 @@
 
 # optional arguments:
 #  -h, --help        show this help message and exit
+#  --dryrun          dry run; don't create any records
 import re
 
 import requests
