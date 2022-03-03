@@ -45,7 +45,7 @@
                 <xsl:value-of select="$varTab"/>
                 <xsl:choose>
                     <xsl:when test="following-sibling::ead:container[@type='object']">
-                        <xsl:text>Object </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='object']"/>
+                        <xsl:text>Box </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='object']"/>
                     </xsl:when>
                     <xsl:when test="following-sibling::ead:container[@type='box']">
                         <xsl:text>Box </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='box']"/>
