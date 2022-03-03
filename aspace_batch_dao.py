@@ -335,21 +335,25 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     # look for existing digital_object_id IDs, if they exist
     # json object structure: "instances": { ["digital_object": {"_resolved": {"digital_object_id"}}]}
     write_out("⋅ searching for existing digital object IDs:")
+    digital_object_ids = []
     if "instances" in archival_object_json:
         for instance_do in archival_object_json["instances"]:
             try:
                 digital_object_id = instance_do["digital_object"]["_resolved"]["digital_object_id"]
-                write_out("  ✓ digital object ID found in this AO: %s" % digital_object_id)
+                write_out("  ! digital object ID found in this AO: %s" % digital_object_id)
                 
                 # check if handle_URI matches digital_object_id
                 if digital_object_id == handle_URI:
                     write_out("  ! digital object ID matches our derived handle URI: %s. Continuing to next AO record." % handle_URI)
-                    continue
+                    digital_object_ids.append(digital_object_id)
+                    return True
                 else:
-                    write_out("  ✓ digital object ID doesn't match our derived handle URI")
+                    write_out("  ✓ digital object ID doesn't match our derived handle URI. This is unusual, but we'll accept it...")
             except KeyError:
-                write_out("  ✓ no digital object ID found in this AO")
                 pass
+
+        if not digital_object_ids:
+            write_out("  ✓ no digital object ID found in this AO")
     
     # look for title
     try:
