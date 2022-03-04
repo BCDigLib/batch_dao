@@ -4,9 +4,12 @@
 To automatically generate description in ArchivesSpace for digitized archival materials, and to re-use that description to ingest files into a Digital Libraries repository.
 
 ## Prerequisites
-Install the project dependencies outlined in `requirements.txt` using pip:
+Install the following project dependencies:
 
-``` pip install -r requirements.txt```
+```shell
+pip install requests
+pip install python-dotenv
+```
 
 Copy `sample.env` to `.env` and include your ArchivesSpace credentials.
 
@@ -30,12 +33,15 @@ When the digitization is complete, run FITS over the image files. Run the [fits-
 ### Run batch DAO script
 Run [aspace_batch_dao.py](aspace_batch_dao.py) from the command line with the following usage: 
 
-`aspace_batch_dao.py ead_to_tab.tsv fits-file.json` 
+`python aspace_batch_dao.py {DEV|STAGE|PROD} ead_to_tab.tsv fits-file.json` 
 
-* where `ead_to_tab.tsv` is the output of aspace_ead_to_tab.xsl,
-* and `fits-file.json` is the output of the FITS transformation. 
+* select one of `{DEV|STAGE|PROD}` for which ASpace server to update
+* `ead_to_tab.tsv` is the output of aspace_ead_to_tab.xsl
+* `fits-file.json` is the output of the FITS transformation
+
+Optionally, you can include the `--dryrun` flag to run the script without editing or creating any new records.
 
 This script will call on the ArchivesSpace API to create a Digital Object, and one or more Digital Object Components for each object and the image files that represent it. If there are errors, the object metadata in ArchivesSpace or various aspects of the python script may need editing.
 
 ### Batch script METS output
-After running aspace_batch_dao.py, there will now be a folder in the directory the script was run from named `METS`, which contains METS metadata files for each DAO created. See the BC wiki for documentation on how to use these files in repository ingest.
+~~After running aspace_batch_dao.py, there will now be a folder in the directory the script was run from named `METS`, which contains METS metadata files for each DAO created. See the BC wiki for documentation on how to use these files in repository ingest.~~ METS output has been deactivated in the aspace_batch_dao.py script. 
