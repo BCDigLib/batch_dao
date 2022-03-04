@@ -50,14 +50,12 @@
                     <xsl:when test="following-sibling::ead:container[@type='box']">
                         <xsl:text>Box </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='box']"/>
                     </xsl:when>
-                    <xsl:choose>
-                        <xsl:when test="following-sibling::ead:container[@type='folder']">
-                            <xsl:text>, Folder </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='folder']"/>
-                        </xsl:when>
-                        <xsl:when test="following-sibling::ead:container[@type='volume']">
-                            <xsl:text>, Volume </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='volume']"/>
-                        </xsl:when>
-                    </xsl:choose>
+                    <xsl:when test="following-sibling::ead:container[@type='folder']">
+                        <xsl:text>, Folder </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='folder']"/>
+                    </xsl:when>
+                    <xsl:when test="following-sibling::ead:container[@type='volume']">
+                        <xsl:text>, Volume </xsl:text><xsl:value-of select="following-sibling::ead:container[@type='volume']"/>
+                    </xsl:when>
                 </xsl:choose>
                 <xsl:value-of select="$varTab"/>
                 <xsl:value-of select="following-sibling::ead:unitdate/@normal"/>
