@@ -52,6 +52,9 @@ ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 # URL parameter to expand the digital_object reference when loading an AO record
 ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM = "?resolve[]=digital_object"
 
+# URL parameter to expand the archival_objects/digital_object references when loading an AO record by refID
+ASPACE_RESOLVE_ARCHIVAL_OBJECT_PARAM = "?resolve[]=archival_objects&resolve[]=_resolved::instances::digital_object"
+
 # set the handle URL prefix
 ASPACE_HANDLE_URL_PREFIX = "http://hdl.handle.net/2345.2/"
 
@@ -264,13 +267,18 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     params = {'ref_id[]': id_ref}
 
     # define AO record URL
-    ao_record_url = ASPACE_URL + '/repositories/2/find_by_id/archival_objects'
+
+    # URL with parameters: 
+    # /repositories/2/find_by_id/archival_objects"?resolve[]=archival_objects&resolve[]=_resolved::instances::digital_object
+    ao_record_url = ASPACE_URL + '/repositories/2/find_by_id/archival_objects' + ASPACE_RESOLVE_ARCHIVAL_OBJECT_PARAM
+    write_out("⋅ fetching AO with URL: %s" % ao_record_url)
     write_out("⋅ fetching AO by ref_id: %s" % id_ref)
 
-    # fetch record
+    # fetch AO record by refID
     try:
-        lookup_raw = requests.get(ao_record_url, headers=headers, params=params)
-        lookup_raw.raise_for_status()
+        archival_objects_json_raw = requests.get(ao_record_url, headers=headers, params=params)
+        archival_objects_json_raw.raise_for_status()
+        write_out("  ✓ found AO object")
     except requests.exceptions.Timeout as e:
         raise InvalidEADRecordError("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN?"
                                     " Continuing to next AO record.")
@@ -281,55 +289,67 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     # convert response to json object
     try:
-        lookup = lookup_raw.json()
+        archival_objects_json_full = archival_objects_json_raw.json()
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
                                     "Continuing to next AO record.")
-    
-    # get the URI of the AO
-    if len(lookup['archival_objects']) > 1:
-        raise InvalidEADRecordError("  ❌ Multiple archival_objects with ref id %s."
-                                    "Make sure ref ids are unique." % id_ref)
+
+    # check that we have a single AO instance from this request
+    if len(archival_objects_json_full['archival_objects']) == 0:
+        raise InvalidEADRecordError("  ❌ Could not find an archival_object with ref_id: %s."  % id_ref)
+
+    if len(archival_objects_json_full['archival_objects']) > 1:
+        raise InvalidEADRecordError("  ❌ Multiple archival_objects with ref_id: %s."
+                                    "Make sure ref_ids are unique." % id_ref)
+
     try:
-        archival_object_uri = lookup['archival_objects'][0]['ref']
+        archival_object_uri = archival_objects_json_full['archival_objects'][0]['ref']
         write_out("  ✓ found AO URI: %s" % archival_object_uri)
     except ValueError:
-        raise InvalidEADRecordError("  ❌ Could not find ['archival_objects'][0]['ref'] value."
+        raise InvalidEADRecordError("  ❌ Could not find [archival_objects][0][ref] value."
                                     "Continuing to next AO record.")
-    # define AO record URL
-    ao_record_url = ASPACE_URL + archival_object_uri + ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM
-    write_out("⋅ using AO URI to fetch individual AO record")
-    write_out("    [using AO API url: %s]" % ao_record_url)
-   
-    # get the full AO json representation
+
+    # simplify our work by pulling out the [archival_objects][0][_resolved] portion of the json object
     try:
-        archival_object_json_raw = requests.get(ao_record_url, headers=headers)
-        archival_object_json_raw.raise_for_status()
-        write_out("  ✓ found AO object")
-    except requests.exceptions.Timeout as e:
-        raise InvalidEADRecordError("  ❌ Timeout error. Is the server running, or do you need to connect through"
-                                    " a VPN? Continuing to next AO record.") from e
+        archival_object_json = archival_objects_json_full['archival_objects'][0]['_resolved']
+    except ValueError:
+        raise InvalidEADRecordError("  ❌ Could not find [archival_objects][0][_resolved] value."
+                                    "Continuing to next AO record.")
+    
+    # # define AO record URL
+    # ao_record_url = ASPACE_URL + archival_object_uri + ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM
+    # write_out("⋅ using AO URI to fetch individual AO record")
+    # write_out("    [using AO API url: %s]" % ao_record_url)
+   
+    # # get the full AO json representation
+    # try:
+    #     archival_object_json_raw = requests.get(ao_record_url, headers=headers)
+    #     archival_object_json_raw.raise_for_status()
+    #     write_out("  ✓ found AO object")
+    # except requests.exceptions.Timeout as e:
+    #     raise InvalidEADRecordError("  ❌ Timeout error. Is the server running, or do you need to connect through"
+    #                                 " a VPN? Continuing to next AO record.") from e
 
-    except requests.exceptions.HTTPError as e:
-        raise InvalidEADRecordError("  ❌ Caught HTTP error. Continuing to next AO record.") from e
+    # except requests.exceptions.HTTPError as e:
+    #     raise InvalidEADRecordError("  ❌ Caught HTTP error. Continuing to next AO record.") from e
 
-    except requests.exceptions.RequestException as e:
-        raise InvalidEADRecordError("  ❌ Error loading ASpace record. Continuing to next AO record.") from e
+    # except requests.exceptions.RequestException as e:
+    #     raise InvalidEADRecordError("  ❌ Error loading ASpace record. Continuing to next AO record.") from e
     
     # convert response to json object
-    try:
-        archival_object_json = archival_object_json_raw.json()
-    except ValueError:
-        raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
-                                    "Continuing to next AO record.")
+    # try:
+    #     archival_object_json = archival_object_json_raw.json()
+    # except ValueError:
+    #     raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
+    #                                 "Continuing to next AO record.")
    
     # check for necessary metadata & only proceed if it's all present.
     write_out("\n  ##### JSON OUTPUT BEGIN - FETCH AO #####", IGNORE_STDOUT)
     write_out(json.dumps(archival_object_json, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("  ##### JSON OUTPUT END - FETCH AO #####\n", IGNORE_STDOUT)
-    write_out("⋅ looking for various metadata values:")
     
     # look for component unique ID
+    write_out("⋅ looking for component unique ID")
     try:
         unique_id = archival_object_json['component_id']
         write_out("  ✓ component unique ID: %s" % unique_id)
@@ -343,7 +363,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     write_out("  ✓ %s" % handle_URI)
 
     # look for existing digital_object_id IDs, if they exist
-    # json object structure: "instances": { ["digital_object": {"_resolved": {"digital_object_id"}}]}
+    # json object structure: "instances": { [...], ["digital_object": {"_resolved": {"digital_object_id"}}] }
     write_out("⋅ searching for existing digital object IDs:")
     digital_object_ids = []
     if "instances" in archival_object_json:
@@ -354,7 +374,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                 
                 # check if handle_URI matches digital_object_id
                 if digital_object_id == handle_URI:
-                    write_out("  ! digital object ID matches our derived handle URI: %s. Continuing to next AO record." % handle_URI)
+                    write_out("  ! digital object ID matches our derived handle URI. Continuing to next AO record.")
                     digital_object_ids.append(digital_object_id)
                     return True
                 else:
@@ -365,6 +385,8 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         if not digital_object_ids:
             write_out("  ✓ no digital object ID found in this AO")
     
+    write_out("⋅ looking for various metadata values:")
+
     # look for title
     try:
         obj_title = archival_object_json['title']
@@ -382,6 +404,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                 raise InvalidEADRecordError("  ❌ Item %s has no title or date expression or date begin/end."
                                             " Please check the metadata & try again."
                                             " Continuing to next AO record." % unique_id)
+    
     write_out("  ✓ object title: %s" % obj_title)
     
     # look for linked agents
