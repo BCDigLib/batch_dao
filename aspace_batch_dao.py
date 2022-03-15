@@ -245,20 +245,24 @@ def main():
 def process_digital_archival_object(files_listing, format_note, headers, index, line, tech_data):
     """Reads a single DAO and adds it to ArchiveSpace
     """
+
     # data from each line in the ead_lines file
-    metadata = line.split("\t")  # creates a metadata array with individual tokens starting at metadata[1]
-    aspace_id = metadata[1]  # aspace_03cca77bf5ecf4d4bfdf70bcaf738383
-    dimensions_note = "1 " + metadata[2]  # 1 file
-    use_note = metadata[3]  # "These materials are made available for ..."
-    collection_dates = metadata[4].split("/")  # [1875, 1879]
-    lang_code = metadata[5]  # eng
-    genre = metadata[6]  # Scrapbooks
-    id_ref = aspace_id[7:len(aspace_id)]  # 03cca77bf5ecf4d4bfdf70bcaf738383
+    metadata = line.split("\t")                 # creates a metadata array with individual tokens starting at metadata[1]
+    aspace_id = metadata[1]                     # aspace_03cca77bf5ecf4d4bfdf70bcaf738383
+    dimensions_note = "1 " + metadata[2]        # 1 file
+    use_note = metadata[3]                      # "These materials are made available for ..."
+    collection_dates = metadata[4].split("/")   # [1875, 1879]
+    lang_code = metadata[5]                     # eng
+    genre = metadata[6]                         # Scrapbooks
+    id_ref = aspace_id[7:len(aspace_id)]        # 03cca77bf5ecf4d4bfdf70bcaf738383
+
     write_out("\n\n###########")
     write_out("[%s] %s - %s" % (index + 1, aspace_id, metadata[4]))
     write_out("###########")
+
     # look up AO record by ref_id pulled from EAD
     params = {'ref_id[]': id_ref}
+
     # define AO record URL
     ao_record_url = ASPACE_URL + '/repositories/2/find_by_id/archival_objects'
     write_out("⋅ fetching AO by ref_id: %s" % id_ref)
@@ -274,12 +278,14 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         raise InvalidEADRecordError("  ❌ Caught HTTP error. Continuing to next AO record.")
     except requests.exceptions.RequestException as e:
         raise InvalidEADRecordError("  ❌ Error loading ASpace record. Continuing to next AO record.")
+    
     # convert response to json object
     try:
         lookup = lookup_raw.json()
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
                                     "Continuing to next AO record.")
+    
     # get the URI of the AO
     if len(lookup['archival_objects']) > 1:
         raise InvalidEADRecordError("  ❌ Multiple archival_objects with ref id %s."
@@ -294,6 +300,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     ao_record_url = ASPACE_URL + archival_object_uri + ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM
     write_out("⋅ using AO URI to fetch individual AO record")
     write_out("    [using AO API url: %s]" % ao_record_url)
+   
     # get the full AO json representation
     try:
         archival_object_json_raw = requests.get(ao_record_url, headers=headers)
@@ -308,17 +315,20 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
 
     except requests.exceptions.RequestException as e:
         raise InvalidEADRecordError("  ❌ Error loading ASpace record. Continuing to next AO record.") from e
+    
     # convert response to json object
     try:
         archival_object_json = archival_object_json_raw.json()
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
                                     "Continuing to next AO record.")
+   
     # check for necessary metadata & only proceed if it's all present.
     write_out("\n  ##### JSON OUTPUT BEGIN - FETCH AO #####", IGNORE_STDOUT)
     write_out(json.dumps(archival_object_json, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("  ##### JSON OUTPUT END - FETCH AO #####\n", IGNORE_STDOUT)
     write_out("⋅ looking for various metadata values:")
+    
     # look for component unique ID
     try:
         unique_id = archival_object_json['component_id']
@@ -373,6 +383,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                                             " Please check the metadata & try again."
                                             " Continuing to next AO record." % unique_id)
     write_out("  ✓ object title: %s" % obj_title)
+    
     # look for linked agents
     try:
         agent_data = archival_object_json['linked_agents']
@@ -380,11 +391,14 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     except KeyError:
         write_out("  ✓ did not find any linked agents")
         agent_data = []
+    
     # check for expression type 'single' before looking for both start and end dates
     date_json = create_date_json(archival_object_json, unique_id, collection_dates)
     write_out("  ✓ generated date json object")
+    
     # write_out(json.dumps(date_json, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("⋅ gathering list of filenames from FITS dictionary by unique ID: %s" % unique_id)
+    
     # pull in files list from FITS dictionary to get data to create digital object components and thumbnail
     try:
         file_names = files_listing[unique_id]
@@ -409,10 +423,12 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
 
     write_out("⋅ deriving resource type:")
     write_out("  ✓ %s" % resource_type)
+    
     # derive file type
     file_type = get_file_type(files_listing[unique_id][0])
     write_out("⋅ deriving file type:")
     write_out("  ✓ %s" % file_type)
+    
     # derive thumbnail URI
     file_name_whole = file_names[0]  # BC2001_074_64862_0000.tif
     file_name_split = os.path.splitext(file_name_whole)  # ('BC2001_074_64862_0000', 'tif')
@@ -420,6 +436,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         raise InvalidEADRecordError("  ❌ Couldn't derive thumbnail URI from file_names list."
                                     " Continuing to next AO record.")
     thumbnail_uri = 'https://iiif.bc.edu/%s.jp2/full/!200,200/0/default.jpg' % file_name_split[0]
+    
     write_out("⋅ deriving thumbnail URI:")
     write_out("  ✓ %s" % thumbnail_uri)
 
@@ -483,15 +500,17 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         'linked_agents': agent_data,
         'subjects': [{"ref": get_genre_type(genre)}]
     }
+    
     # format the JSON
     dig_obj_data = json.dumps(dig_obj_component)
     write_out("\n  ##### JSON OUTPUT BEGIN - CREATE DAO #####", IGNORE_STDOUT)
     write_out(json.dumps(dig_obj_component, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("  ##### JSON OUTPUT END - CREATE DAO #####\n", IGNORE_STDOUT)
-    #
+
     #
     # create DAO records
     #
+
     write_out("⋅ creating DAO")
 
     # skip DAO creation if the --dryrun flag was set
@@ -513,12 +532,14 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
 
     except requests.exceptions.RequestException as e:
         raise InvalidEADRecordError("  ❌ Error posting DAO record. Continuing to next record.")
+   
     # convert response to json object
     try:
         dig_obj_post = dig_obj_post_raw.json()
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
                                     "Continuing to next AO record.")
+    
     # grab the newly created DAO URI and only proceed if the DAO hasn't already been created
     try:
         dig_obj_uri = dig_obj_post['uri']
@@ -526,11 +547,14 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     except KeyError:
         # TODO: rather than continue to next record, go to next step to update AO?
         raise InvalidEADRecordError("  ❌ DAO for item %s already exists. Continuing to next AO record." % unique_id)
+    
     # save the ID of the newly created DAO to feed the IIIF manifest generator
     id_start = dig_obj_uri.rfind('/')  # /repositories/2/archival_objects/1234567
     #                                 ^
+    
     dig_obj_id = dig_obj_uri[(id_start + 1):len(dig_obj_uri)]  # 1234567
     ids_for_manifest.write(dig_obj_id + '\n')
+    
     # next, build a new instance to add to the parent AO, linking to the newly created DAO record
     dig_obj_instance = {
         'instance_type': 'digital_object',
@@ -539,12 +563,15 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         }
     }
     write_out("⋅ updating AO record to include this newly created DAO as an instance")
+    
     # modify the AO record's to include this DAO as an instance
     archival_object_json['instances'].append(dig_obj_instance)
     archival_object_data = json.dumps(archival_object_json)
+    
     #
     # post the AO with an updated DAO instance
     #
+    
     try:
         archival_object_update_raw = requests.post(ASPACE_URL + archival_object_uri, headers=headers,
                                                    data=archival_object_data)
@@ -558,30 +585,34 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
 
     except requests.exceptions.RequestException as e:
         raise InvalidEADRecordError("  ❌ Error updating AO record. Continuing to next AO record.")
+   
     # convert response to json object
     try:
         archival_object_update = archival_object_update_raw.json()
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
                                     " Continuing to next AO record.")
+   
     # TODO: verify post by checking URI from request update to known AO URI
     write_out("  ✓ AO record updated")
 
     #
     # create DAO component records
     #
+    
     # generate DAO components from list of file names for this AO
     write_out("⋅ generating DAO components")
     write_out("    [attempting to create %s records]" % len(file_names))
+    
     completed_dao_component_records = 0
     bad_dao_records = []
     for index, file_name in enumerate(file_names):
-
         write_out("  [%s] %s" % (index, file_name), IGNORE_STDOUT)
 
         # derive base file name
         period_loc = file_name.index('.')
         base_name = file_name[0:period_loc]
+        
         # create DAO component json object
         dig_obj_component = {
             'jsonmodel_type': 'digital_object_component',
