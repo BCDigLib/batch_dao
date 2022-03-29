@@ -49,10 +49,8 @@ ASPACE_URL = os.getenv('ASPACE_' + args.target_environment + '_URL')
 ASPACE_USERNAME = os.getenv('ASPACE_' + args.target_environment + '_USERNAME')
 ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 
-# URL parameter to expand the digital_object reference when loading an AO record
-ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM = "?resolve[]=digital_object"
-
-# URL parameter to expand the archival_objects/digital_object references when loading an AO record by refID
+# URL parameter to expand the archival_objects/digital_object references when loading an AO record by refID.
+# this reduces initial API calls from two to one, and greatly speeds up processing
 ASPACE_RESOLVE_ARCHIVAL_OBJECT_PARAM = "?resolve[]=archival_objects&resolve[]=_resolved::instances::digital_object"
 
 # set the handle URL prefix
@@ -315,33 +313,6 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not find [archival_objects][0][_resolved] value."
                                     "Continuing to next AO record.")
-    
-    # # define AO record URL
-    # ao_record_url = ASPACE_URL + archival_object_uri + ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM
-    # write_out("⋅ using AO URI to fetch individual AO record")
-    # write_out("    [using AO API url: %s]" % ao_record_url)
-   
-    # # get the full AO json representation
-    # try:
-    #     archival_object_json_raw = requests.get(ao_record_url, headers=headers)
-    #     archival_object_json_raw.raise_for_status()
-    #     write_out("  ✓ found AO object")
-    # except requests.exceptions.Timeout as e:
-    #     raise InvalidEADRecordError("  ❌ Timeout error. Is the server running, or do you need to connect through"
-    #                                 " a VPN? Continuing to next AO record.") from e
-
-    # except requests.exceptions.HTTPError as e:
-    #     raise InvalidEADRecordError("  ❌ Caught HTTP error. Continuing to next AO record.") from e
-
-    # except requests.exceptions.RequestException as e:
-    #     raise InvalidEADRecordError("  ❌ Error loading ASpace record. Continuing to next AO record.") from e
-    
-    # convert response to json object
-    # try:
-    #     archival_object_json = archival_object_json_raw.json()
-    # except ValueError:
-    #     raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
-    #                                 "Continuing to next AO record.")
    
     # check for necessary metadata & only proceed if it's all present.
     write_out("\n  ##### JSON OUTPUT BEGIN - FETCH AO #####", IGNORE_STDOUT)
