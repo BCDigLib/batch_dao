@@ -54,7 +54,7 @@ ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 ASPACE_RESOLVE_ARCHIVAL_OBJECT_PARAM = "?resolve[]=archival_objects&resolve[]=_resolved::instances::digital_object"
 
 # set the handle URL prefix
-ASPACE_HANDLE_URL_PREFIX = "http://hdl.handle.net/2345.2/"
+ASPACE_HANDLE_URL_PREFIX = "http://hdl.handle.net/%s/" % os.getenv('HANDLE_PREFIX')
 
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
