@@ -9,10 +9,10 @@
 # METS exports for every created Digital Object are also saved off in a folder labeled "METS".
 
 # usage:
-#    aspace_batch_dao.py [-h][--dryrun] {DEV|STAGE|PROD} tab_file.txt fits_file.json
+#    aspace_batch_dao.py [-h][--dryrun] {LOCAL|DEV|STAGE|PROD} tab_file.txt fits_file.json
 #
 # positional arguments:
-#  {DEV,STAGE,PROD}  targeted ArchivesSpace environment
+#  {LOCAL,DEV,STAGE,PROD}  targeted ArchivesSpace environment
 #  tab_file.tsv      output of aspace_ead_to_tab.xsl
 #  fits_file.json    output of running fit-to-json.xsl over a FITS xml file
 
@@ -32,7 +32,7 @@ from typing import Union
 
 # Parse command line arguments. Handles input validation and opening files.
 parser = argparse.ArgumentParser()
-parser.add_argument("target_environment", choices=["DEV", "STAGE", "PROD"], help="targeted ArchivesSpace environment")
+parser.add_argument("target_environment", choices=["LOCAL", "DEV", "STAGE", "PROD"], help="targeted ArchivesSpace environment")
 parser.add_argument("tab_file", help="tab file generated from EAD", metavar="tab_file.tsv",
                     type=argparse.FileType('r'))
 parser.add_argument("fits_techmd_file", help="FITS file in JSON format", metavar="fits_file.json",
