@@ -388,6 +388,12 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     # check for expression type 'single' before looking for both start and end dates
     date_json = create_date_json(archival_object_json, unique_id, collection_dates)
+
+    # check if we have a valid date_jason object
+    if date_json is None:
+        write_out("  ❌ could not generate date json object. Continuing to next AO record.")
+        return
+
     write_out("  ✓ generated date json object")
     
     # write_out(json.dumps(date_json, indent=4, sort_keys=True), IGNORE_STDOUT)
@@ -404,23 +410,28 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     write_out("  ✓ first file name pulled from FITS dictionary matching unique ID: %s" % file_names[0])
 
     # derive resource type
+    write_out("⋅ deriving resource type:")
     try:
         resource_type = get_resource_type(archival_object_json['instances'])
     except KeyError:
-        write_out(id_ref + " can't be assigned a typeOfResource based on the physical instance. "
-                           "Please check the metadata & try again.")
-        sys.exit(1)
+        write_out("  ❌ %s can't be assigned a typeOfResource based on the physical instance. "
+                           "Please check the metadata & try again. Continuing to next AO record." % id_ref)
+        return
     except IndexError:
-        write_out(id_ref + " can't be assigned a typeOfResource based on the physical instance (%s). "
-                           "Please check the metadata & try again." % archival_object_json['instances'])
-        sys.exit(1)
-
-    write_out("⋅ deriving resource type:")
+        write_out("  ❌ %s  can't be assigned a typeOfResource based on the physical instance (%s). "
+                           "Please check the metadata & try again. Continuing to next AO record." % (id_ref, archival_object_json['instances']) )
+        return
+    
     write_out("  ✓ %s" % resource_type)
     
     # derive file type
     file_type = get_file_type(files_listing[unique_id][0])
     write_out("⋅ deriving file type:")
+
+    if file_type is None:
+        write_out("  ❌ could not derive file type. Continuing to next AO record.")
+        return
+
     write_out("  ✓ %s" % file_type)
     
     # derive thumbnail URI
@@ -433,6 +444,16 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     write_out("⋅ deriving thumbnail URI:")
     write_out("  ✓ %s" % thumbnail_uri)
+
+    # derive genre type
+    genre_type = get_genre_type(genre)
+    write_out("⋅ deriving genre type:")
+
+    if genre_type is None:
+        write_out("  ❌ could not derive genre type. Continuing to next AO record.")
+        return
+
+    write_out("  ✓ %s" % genre_type)
 
     # generate JSON object for creating DAO
     dig_obj_component = {
@@ -492,7 +513,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         ],
         'dates': [date_json],
         'linked_agents': agent_data,
-        'subjects': [{"ref": get_genre_type(genre)}]
+        'subjects': [{"ref": genre_type}]
     }
     
     # format the JSON
@@ -699,16 +720,16 @@ def create_date_json(jsontext, itemid, collection_dates):
     # Filter out invalid dates.
     if not begin and not has_expression:
         write_out(itemid + " has no start date or date expression. Please check the metadata and try again.")
-        sys.exit(1)
+        return None
 
     if not begin and not is_undated:
         write_out(itemid + " has no start date and date expression is not 'undated'. "
                            "Please check the metadata and try again.")
-        sys.exit(1)
+        return None
 
     if begin and not end:
         write_out("Item " + itemid + " has no end date. Please check the metadata & try again.")
-        sys.exit(1)
+        return None
 
     # Set default begin and end dates if 'undated' and there are collection
     # dates.
@@ -797,7 +818,7 @@ def get_genre_type(dc_genre_term: str) -> str:
     except KeyError:
         write_out(dc_genre_term + " is an invalid or improperly formatted genre term. "
                                   "Please check the Digital Commonwealth documentation and try again.")
-        sys.exit(1)
+        return None
 
 # builds a [file version] segment for the Digital object component json that contains appropriate tech metadata from the
 # FITS file. HARD CODED ASSUMPTIONS: Checksum type = MD5
@@ -969,7 +990,7 @@ def get_file_type(filename):
     else:
         write_out("File extension for " + filename + " not recognized. "
                   "Please reformat files or add extension to get_file_type function")
-        sys.exit(1)
+        return None
     return value
 
 def prompt_yes_no(question: str):
