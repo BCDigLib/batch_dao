@@ -619,45 +619,49 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     # generate DAO components from list of file names for this AO
     write_out("⋅ generating DAO components")
-    write_out("    [attempting to create %s records]" % len(file_names))
+    write_out("    [preparing to create %s DAO component records]" % len(file_names))
     
     completed_dao_component_records = 0
     bad_dao_records = []
-    for index, file_name in enumerate(file_names):
-        write_out("  [%s] %s" % (index, file_name), IGNORE_STDOUT)
 
-        # derive base file name
-        period_loc = file_name.index('.')
-        base_name = file_name[0:period_loc]
-        
-        # create DAO component json object
-        dig_obj_component = {
-            'jsonmodel_type': 'digital_object_component',
-            'publish': False,
-            'label': base_name,
-            'file_versions': build_comp_file_version(file_name, tech_data),
-            'title': base_name,
-            'display_string': file_name,
-            'digital_object': {
-                'ref': dig_obj_uri
+    # se will use a progressbar to display our progress
+    with progressbar.ProgressBar(max_value=len(file_names)) as bar:
+        for index, file_name in enumerate(file_names):
+            write_out("  [%s] %s" % (index, file_name), IGNORE_STDOUT)
+
+            # derive base file name
+            period_loc = file_name.index('.')
+            base_name = file_name[0:period_loc]
+            
+            # create DAO component json object
+            dig_obj_component = {
+                'jsonmodel_type': 'digital_object_component',
+                'publish': False,
+                'label': base_name,
+                'file_versions': build_comp_file_version(file_name, tech_data),
+                'title': base_name,
+                'display_string': file_name,
+                'digital_object': {
+                    'ref': dig_obj_uri
+                }
             }
-        }
 
-        try:
-            dig_obj_component_uri = post_digital_object_component(dig_obj_component, headers)
-            completed_dao_component_records += 1
-            
-            # Success adding the digital object!
-            if dig_obj_component_uri:
-                write_out("    ✓ DAO component created with URI: %s" % dig_obj_component_uri, IGNORE_STDOUT)
-            else:
-                write_out("    ✓ DAO component created [missing URI?]", IGNORE_STDOUT)
+            try:
+                dig_obj_component_uri = post_digital_object_component(dig_obj_component, headers)
+                completed_dao_component_records += 1
+                
+                # Success adding the digital object!
+                if dig_obj_component_uri:
+                    write_out("    ✓ DAO component created with URI: %s" % dig_obj_component_uri, IGNORE_STDOUT)
+                else:
+                    write_out("    ✓ DAO component created [missing URI?]", IGNORE_STDOUT)
 
-        except DAOCreationError as e:
-            bad_dao_records.append(file_name)
-            write_out(str(e))
-            
-        write_out("  ✓ created %s DAO component records" % completed_dao_component_records)
+            except DAOCreationError as e:
+                bad_dao_records.append(file_name)
+                write_out(str(e))
+
+            # update progressbar display
+            bar.update(index)
 
     if bad_dao_records:
         write_out("  [Found %s DAOs that couldn't be created]" % len(bad_dao_records))
