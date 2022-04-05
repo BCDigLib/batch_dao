@@ -26,6 +26,7 @@ import json
 import sys
 import os
 import argparse
+import progressbar
 from datetime import datetime
 from dotenv import load_dotenv
 from typing import Union
@@ -394,7 +395,8 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         write_out("  ❌ could not generate date json object. Continuing to next AO record.")
         return
 
-    write_out("  ✓ generated date json object")
+    write_out("  ✓ generated date json object:")
+    write_out("    %s" % date_json)
     
     # write_out(json.dumps(date_json, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("⋅ gathering list of filenames from FITS dictionary by unique ID: %s" % unique_id)
@@ -706,61 +708,89 @@ def post_digital_object_component(dig_obj_component: dict, headers: dict) -> Uni
 
 # put date json creation in a separate function because different types need different handling.
 def create_date_json(jsontext, itemid, collection_dates):
-    first_date = jsontext['dates'][0]
-
-    # Beginning and end of date range.
-    begin = first_date['begin'] if 'begin' in first_date else None
-    end = first_date['end'] if 'end' in first_date else None
-
-    # Boolean flags to assess date structure.
-    has_expression = 'expression' in first_date
-    is_undated = has_expression and 'undated' in first_date['expression']
-    is_single = 'single' in first_date['date_type']
-
-    # Filter out invalid dates.
-    if not begin and not has_expression:
-        write_out(itemid + " has no start date or date expression. Please check the metadata and try again.")
+    try:
+        # we only care about the first instance of a date object
+        date_obj = jsontext['dates'][0]
+    except KeyError:
+        # can't find the 'dates' object
+        write_out("ERROR: can't find a 'dates' object for this AO record!")
         return None
 
-    if not begin and not is_undated:
-        write_out(itemid + " has no start date and date expression is not 'undated'. "
-                           "Please check the metadata and try again.")
+    try:
+        # pull out the date_expression field
+        # this field may not exist in date_obj, but this is OK
+        date_expression = date_obj['expression']
+    except KeyError:
+        date_expression = None
+
+    try:
+        # pull out the date_type field
+        date_type = date_obj['date_type']
+    except KeyError:
+        # can't find the 'date_type' value
+        write_out("ERROR: can't find a date 'date_type' value for this AO record!")
         return None
 
-    if begin and not end:
-        write_out("Item " + itemid + " has no end date. Please check the metadata & try again.")
+    # pull out beginning and end dates if they exist
+    date_begin = date_obj['begin'] if 'begin' in date_obj else None
+    date_end   = date_obj['end'] if 'end' in date_obj else None
+
+    # set boolean flags to assess date structure.
+    # we will look for two fields:
+    #   - 'expression' is a free-text field
+    #   - 'date_type' can be one of the following values:
+    #       - bulk
+    #       - inclusive
+    #       - single
+    has_expression = date_expression is not None
+    is_undated = has_expression and 'undated' in date_expression
+    is_single = 'single' in date_type
+
+    # return error if there isn't a date_expression nor beginning date
+    if not date_begin and not has_expression:
+        write_out("ERROR: AO record has no beginning date or date expression. " 
+                        "Please check the metadata and try again.")
         return None
 
-    # Set default begin and end dates if 'undated' and there are collection
-    # dates.
+    # return error if there the date_expression is 'undated' and there isn't a beginning date
+    if not date_begin and not is_undated:
+        write_out("ERROR: AO record has no beginning date and date expression is 'undated'. "
+                        "Please check the metadata and try again.")
+        return None
+
+    # set default begin and end dates if date_expression is 'undated', 
+    # and there are collection dates e.g., [1900, 1903]
     if is_undated and len(collection_dates) > 1:
-        begin = collection_dates[0] if not begin else begin
-        end = collection_dates[1] if not end else end
+        date_begin = collection_dates[0] if not date_begin else date_begin
+        date_end   = collection_dates[1] if not date_end else date_end
 
     # Build expression text.
     if has_expression:
-        expression = first_date['expression']
+        dao_expression = date_expression
     elif is_single:
-        expression = begin
-    elif end in begin:
-        expression = begin
+        dao_expression = date_begin
+    elif date_end in date_begin:
+        dao_expression = date_begin
+    elif date_begin and date_end:
+        dao_expression = "%s - %s" % (date_begin, date_end)
     else:
-        expression = begin + "-" + end
+        dao_expression = date_begin
 
-    date_json = {
-                'date_type': first_date['date_type'],
-                'expression': expression,
+    # create DAO date_json object
+    dao_date_json = {
+                'date_type': date_type,
+                'expression': dao_expression,
                 'label': 'creation',
                 'jsonmodel_type': 'date'
     }
 
-    if begin:
-        date_json['begin'] = begin
+    if date_begin:
+        dao_date_json['begin'] = date_begin
 
     if not is_single:
-        date_json['end'] = end
+        dao_date_json['end'] = date_begin
 
-    return date_json
+    return dao_date_json
 
 def get_resource_type(instances: list) -> str:
 
