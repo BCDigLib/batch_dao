@@ -377,7 +377,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                                             " Please check the metadata & try again."
                                             " Continuing to next AO record." % unique_id)
     
-    write_out("  ✓ object title: %s" % obj_title)
+    write_out("  ✓ object title: '%s'" % obj_title)
     
     # look for linked agents
     try:
