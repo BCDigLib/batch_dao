@@ -13,10 +13,12 @@
         <xsl:text>eng</xsl:text>
     </xsl:variable>
     <!-- Set Digital Commonwealth genre type here. Must be one of the 20 headings listed in the DC-BPL MODS guidelines. Word only, ASpace handles the authority code. -->
+    <!-- See https://bcwiki.bc.edu/x/EdyT for more information.-->
     <xsl:variable name="DCGenre">
         <xsl:text>Correspondence</xsl:text>
     </xsl:variable>
     <!-- Set Digital Commonwealth typeOfResource here. Must be one of the 11 options listed in the DC-BPL MODS guidelines. -->
+    <!-- See https://bcwiki.bc.edu/x/EdyT for more information.-->
     <xsl:variable name="typeOfResource">
         <xsl:text>text</xsl:text>
     </xsl:variable>

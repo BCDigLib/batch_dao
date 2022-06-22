@@ -9,10 +9,10 @@
 # METS exports for every created Digital Object are also saved off in a folder labeled "METS".
 
 # usage:
-#    aspace_batch_dao.py [-h][--dryrun] {DEV|STAGE|PROD} tab_file.txt fits_file.json
+#    aspace_batch_dao.py [-h][--dryrun] {LOCAL|DEV|STAGE|PROD} tab_file.txt fits_file.json
 #
 # positional arguments:
-#  {DEV,STAGE,PROD}  targeted ArchivesSpace environment
+#  {LOCAL,DEV,STAGE,PROD}  targeted ArchivesSpace environment
 #  tab_file.tsv      output of aspace_ead_to_tab.xsl
 #  fits_file.json    output of running fit-to-json.xsl over a FITS xml file
 
@@ -26,13 +26,14 @@ import json
 import sys
 import os
 import argparse
+import progressbar
 from datetime import datetime
 from dotenv import load_dotenv
 from typing import Union
 
 # Parse command line arguments. Handles input validation and opening files.
 parser = argparse.ArgumentParser()
-parser.add_argument("target_environment", choices=["DEV", "STAGE", "PROD"], help="targeted ArchivesSpace environment")
+parser.add_argument("target_environment", choices=["LOCAL", "DEV", "STAGE", "PROD"], help="targeted ArchivesSpace environment")
 parser.add_argument("tab_file", help="tab file generated from EAD", metavar="tab_file.tsv",
                     type=argparse.FileType('r'))
 parser.add_argument("fits_techmd_file", help="FITS file in JSON format", metavar="fits_file.json",
@@ -49,11 +50,12 @@ ASPACE_URL = os.getenv('ASPACE_' + args.target_environment + '_URL')
 ASPACE_USERNAME = os.getenv('ASPACE_' + args.target_environment + '_USERNAME')
 ASPACE_PASSWORD = os.getenv('ASPACE_' + args.target_environment + '_PASSWORD')
 
-# URL parameter to expand the digital_object reference when loading an AO record
-ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM = "?resolve[]=digital_object"
+# URL parameter to expand the archival_objects/digital_object references when loading an AO record by refID.
+# this reduces initial API calls from two to one, and greatly speeds up processing
+ASPACE_RESOLVE_ARCHIVAL_OBJECT_PARAM = "?resolve[]=archival_objects&resolve[]=_resolved::instances::digital_object"
 
 # set the handle URL prefix
-ASPACE_HANDLE_URL_PREFIX = "http://hdl.handle.net/2345.2/"
+ASPACE_HANDLE_URL_PREFIX = "http://hdl.handle.net/%s/" % os.getenv('HANDLE_PREFIX')
 
 curr_date = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -264,13 +266,18 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     params = {'ref_id[]': id_ref}
 
     # define AO record URL
-    ao_record_url = ASPACE_URL + '/repositories/2/find_by_id/archival_objects'
+
+    # URL with parameters: 
+    # /repositories/2/find_by_id/archival_objects"?resolve[]=archival_objects&resolve[]=_resolved::instances::digital_object
+    ao_record_url = ASPACE_URL + '/repositories/2/find_by_id/archival_objects' + ASPACE_RESOLVE_ARCHIVAL_OBJECT_PARAM
+    write_out("⋅ fetching AO with URL: %s" % ao_record_url)
     write_out("⋅ fetching AO by ref_id: %s" % id_ref)
 
-    # fetch record
+    # fetch AO record by refID
     try:
-        lookup_raw = requests.get(ao_record_url, headers=headers, params=params)
-        lookup_raw.raise_for_status()
+        archival_objects_json_raw = requests.get(ao_record_url, headers=headers, params=params)
+        archival_objects_json_raw.raise_for_status()
+        write_out("  ✓ found AO object")
     except requests.exceptions.Timeout as e:
         raise InvalidEADRecordError("  ❌ Timeout error. Is the server running, or do you need to connect through a VPN?"
                                     " Continuing to next AO record.")
@@ -281,55 +288,40 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     # convert response to json object
     try:
-        lookup = lookup_raw.json()
+        archival_objects_json_full = archival_objects_json_raw.json()
     except ValueError:
         raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
                                     "Continuing to next AO record.")
-    
-    # get the URI of the AO
-    if len(lookup['archival_objects']) > 1:
-        raise InvalidEADRecordError("  ❌ Multiple archival_objects with ref id %s."
-                                    "Make sure ref ids are unique." % id_ref)
+
+    # check that we have a single AO instance from this request
+    if len(archival_objects_json_full['archival_objects']) == 0:
+        raise InvalidEADRecordError("  ❌ Could not find an archival_object with ref_id: %s."  % id_ref)
+
+    if len(archival_objects_json_full['archival_objects']) > 1:
+        raise InvalidEADRecordError("  ❌ Multiple archival_objects with ref_id: %s."
+                                    "Make sure ref_ids are unique." % id_ref)
+
     try:
-        archival_object_uri = lookup['archival_objects'][0]['ref']
+        archival_object_uri = archival_objects_json_full['archival_objects'][0]['ref']
         write_out("  ✓ found AO URI: %s" % archival_object_uri)
     except ValueError:
-        raise InvalidEADRecordError("  ❌ Could not find ['archival_objects'][0]['ref'] value."
+        raise InvalidEADRecordError("  ❌ Could not find [archival_objects][0][ref] value."
                                     "Continuing to next AO record.")
-    # define AO record URL
-    ao_record_url = ASPACE_URL + archival_object_uri + ASPACE_RESOLVE_DIGITAL_OBJECT_PARAM
-    write_out("⋅ using AO URI to fetch individual AO record")
-    write_out("    [using AO API url: %s]" % ao_record_url)
-   
-    # get the full AO json representation
-    try:
-        archival_object_json_raw = requests.get(ao_record_url, headers=headers)
-        archival_object_json_raw.raise_for_status()
-        write_out("  ✓ found AO object")
-    except requests.exceptions.Timeout as e:
-        raise InvalidEADRecordError("  ❌ Timeout error. Is the server running, or do you need to connect through"
-                                    " a VPN? Continuing to next AO record.") from e
 
-    except requests.exceptions.HTTPError as e:
-        raise InvalidEADRecordError("  ❌ Caught HTTP error. Continuing to next AO record.") from e
-
-    except requests.exceptions.RequestException as e:
-        raise InvalidEADRecordError("  ❌ Error loading ASpace record. Continuing to next AO record.") from e
-    
-    # convert response to json object
+    # simplify our work by pulling out the [archival_objects][0][_resolved] portion of the json object
     try:
-        archival_object_json = archival_object_json_raw.json()
+        archival_object_json = archival_objects_json_full['archival_objects'][0]['_resolved']
     except ValueError:
-        raise InvalidEADRecordError("  ❌ Could not load request response as a json file."
+        raise InvalidEADRecordError("  ❌ Could not find [archival_objects][0][_resolved] value."
                                     "Continuing to next AO record.")
    
     # check for necessary metadata & only proceed if it's all present.
     write_out("\n  ##### JSON OUTPUT BEGIN - FETCH AO #####", IGNORE_STDOUT)
     write_out(json.dumps(archival_object_json, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("  ##### JSON OUTPUT END - FETCH AO #####\n", IGNORE_STDOUT)
-    write_out("⋅ looking for various metadata values:")
     
     # look for component unique ID
+    write_out("⋅ looking for component unique ID")
     try:
         unique_id = archival_object_json['component_id']
         write_out("  ✓ component unique ID: %s" % unique_id)
@@ -343,7 +335,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     write_out("  ✓ %s" % handle_URI)
 
     # look for existing digital_object_id IDs, if they exist
-    # json object structure: "instances": { ["digital_object": {"_resolved": {"digital_object_id"}}]}
+    # json object structure: "instances": { [...], ["digital_object": {"_resolved": {"digital_object_id"}}] }
     write_out("⋅ searching for existing digital object IDs:")
     digital_object_ids = []
     if "instances" in archival_object_json:
@@ -354,7 +346,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                 
                 # check if handle_URI matches digital_object_id
                 if digital_object_id == handle_URI:
-                    write_out("  ! digital object ID matches our derived handle URI: %s. Continuing to next AO record." % handle_URI)
+                    write_out("  ! digital object ID matches our derived handle URI. Continuing to next AO record.")
                     digital_object_ids.append(digital_object_id)
                     return True
                 else:
@@ -365,6 +357,8 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         if not digital_object_ids:
             write_out("  ✓ no digital object ID found in this AO")
     
+    write_out("⋅ looking for various metadata values:")
+
     # look for title
     try:
         obj_title = archival_object_json['title']
@@ -382,7 +376,8 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
                 raise InvalidEADRecordError("  ❌ Item %s has no title or date expression or date begin/end."
                                             " Please check the metadata & try again."
                                             " Continuing to next AO record." % unique_id)
-    write_out("  ✓ object title: %s" % obj_title)
+    
+    write_out("  ✓ object title: '%s'" % obj_title)
     
     # look for linked agents
     try:
@@ -394,7 +389,14 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     # check for expression type 'single' before looking for both start and end dates
     date_json = create_date_json(archival_object_json, unique_id, collection_dates)
-    write_out("  ✓ generated date json object")
+
+    # check if we have a valid date_jason object
+    if date_json is None:
+        write_out("  ❌ could not generate date json object. Continuing to next AO record.")
+        return
+
+    write_out("  ✓ generated date json object:")
+    write_out("    %s" % date_json)
     
     # write_out(json.dumps(date_json, indent=4, sort_keys=True), IGNORE_STDOUT)
     write_out("⋅ gathering list of filenames from FITS dictionary by unique ID: %s" % unique_id)
@@ -410,23 +412,28 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     write_out("  ✓ first file name pulled from FITS dictionary matching unique ID: %s" % file_names[0])
 
     # derive resource type
+    write_out("⋅ deriving resource type:")
     try:
         resource_type = get_resource_type(archival_object_json['instances'])
     except KeyError:
-        write_out(id_ref + " can't be assigned a typeOfResource based on the physical instance. "
-                           "Please check the metadata & try again.")
-        sys.exit(1)
+        write_out("  ❌ %s can't be assigned a typeOfResource based on the physical instance. "
+                           "Please check the metadata & try again. Continuing to next AO record." % id_ref)
+        return
     except IndexError:
-        write_out(id_ref + " can't be assigned a typeOfResource based on the physical instance (%s). "
-                           "Please check the metadata & try again." % archival_object_json['instances'])
-        sys.exit(1)
-
-    write_out("⋅ deriving resource type:")
+        write_out("  ❌ %s  can't be assigned a typeOfResource based on the physical instance (%s). "
+                           "Please check the metadata & try again. Continuing to next AO record." % (id_ref, archival_object_json['instances']) )
+        return
+    
     write_out("  ✓ %s" % resource_type)
     
     # derive file type
     file_type = get_file_type(files_listing[unique_id][0])
     write_out("⋅ deriving file type:")
+
+    if file_type is None:
+        write_out("  ❌ could not derive file type. Continuing to next AO record.")
+        return
+
     write_out("  ✓ %s" % file_type)
     
     # derive thumbnail URI
@@ -439,6 +446,16 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     write_out("⋅ deriving thumbnail URI:")
     write_out("  ✓ %s" % thumbnail_uri)
+
+    # derive genre type
+    genre_type = get_genre_type(genre)
+    write_out("⋅ deriving genre type:")
+
+    if genre_type is None:
+        write_out("  ❌ could not derive genre type. Continuing to next AO record.")
+        return
+
+    write_out("  ✓ %s" % genre_type)
 
     # generate JSON object for creating DAO
     dig_obj_component = {
@@ -498,7 +515,7 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
         ],
         'dates': [date_json],
         'linked_agents': agent_data,
-        'subjects': [{"ref": get_genre_type(genre)}]
+        'subjects': [{"ref": genre_type}]
     }
     
     # format the JSON
@@ -602,45 +619,49 @@ def process_digital_archival_object(files_listing, format_note, headers, index, 
     
     # generate DAO components from list of file names for this AO
     write_out("⋅ generating DAO components")
-    write_out("    [attempting to create %s records]" % len(file_names))
+    write_out("    [preparing to create %s DAO component records]" % len(file_names))
     
     completed_dao_component_records = 0
     bad_dao_records = []
-    for index, file_name in enumerate(file_names):
-        write_out("  [%s] %s" % (index, file_name), IGNORE_STDOUT)
 
-        # derive base file name
-        period_loc = file_name.index('.')
-        base_name = file_name[0:period_loc]
-        
-        # create DAO component json object
-        dig_obj_component = {
-            'jsonmodel_type': 'digital_object_component',
-            'publish': False,
-            'label': base_name,
-            'file_versions': build_comp_file_version(file_name, tech_data),
-            'title': base_name,
-            'display_string': file_name,
-            'digital_object': {
-                'ref': dig_obj_uri
+    # se will use a progressbar to display our progress
+    with progressbar.ProgressBar(max_value=len(file_names)) as bar:
+        for index, file_name in enumerate(file_names):
+            write_out("  [%s] %s" % (index, file_name), IGNORE_STDOUT)
+
+            # derive base file name
+            period_loc = file_name.index('.')
+            base_name = file_name[0:period_loc]
+            
+            # create DAO component json object
+            dig_obj_component = {
+                'jsonmodel_type': 'digital_object_component',
+                'publish': False,
+                'label': base_name,
+                'file_versions': build_comp_file_version(file_name, tech_data),
+                'title': base_name,
+                'display_string': file_name,
+                'digital_object': {
+                    'ref': dig_obj_uri
+                }
             }
-        }
 
-        try:
-            dig_obj_component_uri = post_digital_object_component(dig_obj_component, headers)
-            completed_dao_component_records += 1
-            
-            # Success adding the digital object!
-            if dig_obj_component_uri:
-                write_out("    ✓ DAO component created with URI: %s" % dig_obj_component_uri, IGNORE_STDOUT)
-            else:
-                write_out("    ✓ DAO component created [missing URI?]", IGNORE_STDOUT)
+            try:
+                dig_obj_component_uri = post_digital_object_component(dig_obj_component, headers)
+                completed_dao_component_records += 1
+                
+                # Success adding the digital object!
+                if dig_obj_component_uri:
+                    write_out("    ✓ DAO component created with URI: %s" % dig_obj_component_uri, IGNORE_STDOUT)
+                else:
+                    write_out("    ✓ DAO component created [missing URI?]", IGNORE_STDOUT)
 
-        except DAOCreationError as e:
-            bad_dao_records.append(file_name)
-            write_out(str(e))
-            
-        write_out("  ✓ created %s DAO component records" % completed_dao_component_records)
+            except DAOCreationError as e:
+                bad_dao_records.append(file_name)
+                write_out(str(e))
+
+            # update progressbar display
+            bar.update(index)
 
     if bad_dao_records:
         write_out("  [Found %s DAOs that couldn't be created]" % len(bad_dao_records))
@@ -691,61 +712,89 @@ def post_digital_object_component(dig_obj_component: dict, headers: dict) -> Uni
 
 # put date json creation in a separate function because different types need different handling.
 def create_date_json(jsontext, itemid, collection_dates):
-    first_date = jsontext['dates'][0]
+    try:
+        # we only care about the first instance of a date object
+        date_obj = jsontext['dates'][0]
+    except KeyError:
+        # can't find the 'dates' object
+        write_out("ERROR: can't find a 'dates' object for this AO record!")
+        return None
 
-    # Beginning and end of date range.
-    begin = first_date['begin'] if 'begin' in first_date else None
-    end = first_date['end'] if 'end' in first_date else None
+    try:
+        # pull out the date_expression field
+        # this field may not exist in date_obj, but this is OK
+        date_expression = date_obj['expression']
+    except KeyError:
+        date_expression = None
 
-    # Boolean flags to assess date structure.
-    has_expression = 'expression' in first_date
-    is_undated = has_expression and 'undated' in first_date['expression']
-    is_single = 'single' in first_date['date_type']
+    try:
+        # pull out the date_type field
+        date_type = date_obj['date_type']
+    except KeyError:
+        # can't find the 'date_type' value
+        write_out("ERROR: can't find a date 'date_type' value for this AO record!")
+        return None
 
-    # Filter out invalid dates.
-    if not begin and not has_expression:
-        write_out(itemid + " has no start date or date expression. Please check the metadata and try again.")
-        sys.exit(1)
+    # pull out beginning and end dates if they exist
+    date_begin = date_obj['begin'] if 'begin' in date_obj else None
+    date_end   = date_obj['end'] if 'end' in date_obj else None
 
-    if not begin and not is_undated:
-        write_out(itemid + " has no start date and date expression is not 'undated'. "
-                           "Please check the metadata and try again.")
-        sys.exit(1)
+    # set boolean flags to assess date structure.
+    # we will look for two fields:
+    #   - 'expression' is a free-text field
+    #   - 'date_type' can be one of the following values:
+    #       - bulk
+    #       - inclusive
+    #       - single
+    has_expression = date_expression is not None
+    is_undated = has_expression and 'undated' in date_expression
+    is_single = 'single' in date_type
 
-    if begin and not end:
-        write_out("Item " + itemid + " has no end date. Please check the metadata & try again.")
-        sys.exit(1)
+    # return error if there isn't a date_expression nor beginning date
+    if not date_begin and not has_expression:
+        write_out("ERROR: AO record has no beginning date or date expression. " 
+                        "Please check the metadata and try again.")
+        return None
 
-    # Set default begin and end dates if 'undated' and there are collection
-    # dates.
+    # return error if there the date_expression is 'undated' and there isn't a beginning date
+    if not date_begin and not is_undated:
+        write_out("ERROR: AO record has no beginning date and date expression is 'undated'. "
+                        "Please check the metadata and try again.")
+        return None
+
+    # set default begin and end dates if date_expression is 'undated', 
+    # and there are collection dates e.g., [1900, 1903]
     if is_undated and len(collection_dates) > 1:
-        begin = collection_dates[0] if not begin else begin
-        end = collection_dates[1] if not end else end
+        date_begin = collection_dates[0] if not date_begin else date_begin
+        date_end   = collection_dates[1] if not date_end else date_end
 
     # Build expression text.
     if has_expression:
-        expression = first_date['expression']
+        dao_expression = date_expression
     elif is_single:
-        expression = begin
-    elif end in begin:
-        expression = begin
+        dao_expression = date_begin
+    elif date_end in date_begin:
+        dao_expression = date_begin
+    elif date_begin and date_end:
+        dao_expression = "%s - %s" % (date_begin, date_end)
     else:
-        expression = begin + "-" + end
+        dao_expression = date_begin
 
-    date_json = {
-                'date_type': first_date['date_type'],
-                'expression': expression,
+    # create DAO date_json object
+    dao_date_json = {
+                'date_type': date_type,
+                'expression': dao_expression,
                 'label': 'creation',
                 'jsonmodel_type': 'date'
     }
 
-    if begin:
-        date_json['begin'] = begin
+    if date_begin:
+        dao_date_json['begin'] = date_begin
 
     if not is_single:
-        date_json['end'] = end
+        dao_date_json['end'] = date_begin
 
-    return date_json
+    return dao_date_json
 
 def get_resource_type(instances: list) -> str:
 
@@ -803,7 +852,7 @@ def get_genre_type(dc_genre_term: str) -> str:
     except KeyError:
         write_out(dc_genre_term + " is an invalid or improperly formatted genre term. "
                                   "Please check the Digital Commonwealth documentation and try again.")
-        sys.exit(1)
+        return None
 
 # builds a [file version] segment for the Digital object component json that contains appropriate tech metadata from the
 # FITS file. HARD CODED ASSUMPTIONS: Checksum type = MD5
@@ -975,7 +1024,7 @@ def get_file_type(filename):
     else:
         write_out("File extension for " + filename + " not recognized. "
                   "Please reformat files or add extension to get_file_type function")
-        sys.exit(1)
+        return None
     return value
 
 def prompt_yes_no(question: str):

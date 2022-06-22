@@ -9,9 +9,21 @@ Install the following project dependencies:
 ```shell
 pip install requests
 pip install python-dotenv
+pip install progressbar2
 ```
 
 Copy `sample.env` to `.env` and include your ArchivesSpace credentials.
+
+## Using virtual env
+It is recommended to use a python virtual environment like [venv](https://docs.python.org/3/library/venv.html).
+
+Here is a sample use case:
+
+```
+pip install virtualenv
+python3 -m venv env
+source env/bin/activate
+```
 
 ## Steps:
 
