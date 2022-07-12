@@ -184,6 +184,8 @@ def main():
         # Handle "BC-" IDs
         normalized_key = normalized_key.replace('BC-', 'BC')       # "BC2000-178_15087_0001.tif"
 
+        normalized_key = normalized_key.replace('MS-', 'MS')       # "BC2000-178_15087_0001.tif"
+
         # Replace dashes with underscores
         normalized_key = normalized_key.replace('-', '_')          # "BC2000_178_15087_0001.tif"
 
@@ -194,6 +196,7 @@ def main():
         # Some IDs have underscores after th 'BC', e.g. 'BC_2000' as opposed to 'BC2000'
         # Accept both options.
         short_name_with_underscore = re.sub('^BC([0-9])', r'BC_\1', short_name)
+        short_name_with_underscore = re.sub('^MS([0-9])', r'MS_\1', short_name)
 
         # add short_name with and without underscores to dictionary
         if short_name not in files_listing:
@@ -747,7 +750,7 @@ def create_date_json(jsontext, itemid, collection_dates):
     #       - inclusive
     #       - single
     has_expression = date_expression is not None
-    is_undated = has_expression and ('undated' in date_expression)
+    is_undated = has_expression and 'undated' in date_expression
     is_single = 'single' in date_type
 
     # return error if there isn't a date_expression nor beginning date
@@ -757,7 +760,7 @@ def create_date_json(jsontext, itemid, collection_dates):
         return None
 
     # return error if there the date_expression is 'undated' and there isn't a beginning date
-    if not date_begin and is_undated:
+    if not date_begin and not is_undated:
         write_out("ERROR: AO record has no beginning date and date expression is 'undated'. "
                         "Please check the metadata and try again.")
         return None
