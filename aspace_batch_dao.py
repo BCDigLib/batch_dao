@@ -171,32 +171,31 @@ def main():
     # }
 
     files_listing = dict()
-    for key, values in tech_data.items():               #
+    for key, values in tech_data.items():
 
         # Most file names are in the format: "BC2001_074_64862_0000.tif", but some are in the format
         # "bc-2001-074_64862_0000.tif"
 
-        # integer in the line below may need updating 
-        # for items with differently formatted CUIs
-
+        # Convert to all uppercase        
         normalized_key = key.upper()                               # "BC-2000-178_15087_0001.tif"
 
-        # Handle "BC-" IDs
-        normalized_key = normalized_key.replace('BC-', 'BC')       # "BC2000-178_15087_0001.tif"
-
-        normalized_key = normalized_key.replace('MS-', 'MS')       # "BC2000-178_15087_0001.tif"
+        # Normalize CUI strings that exist in a few different formats:
+        #   Original                      Normalized
+        #   BC-2000-178_15087_0001.tif => BC2000-178_15087_0001.tif
+        #   BC_2000-178_15087_0001.tif => BC2000-178_15087_0001.tif
+        #   MS-2000-178_15087_0001.tif => MS2000-178_15087_0001.tif
+        #   MS-2000-178_15087_0001.tif => MS2000-178_15087_0001.tif
+        #   FOO-200-178_15087_0001.tif => FOO200-178_15087_0001.tif
+        
+        normalized_key = re.sub('^([a-zA-Z]+)[-_](.*)', r'\1\2', normalized_key)
 
         # Replace dashes with underscores
         normalized_key = normalized_key.replace('-', '_')          # "BC2000_178_15087_0001.tif"
 
+        # Extract the last portion of the CUI string
         cutoff = normalized_key.replace('_', "|", 2).find('_')     # "BC2001|074|64862_0000.tif"
         #                                                                             ^
         short_name = normalized_key[0:cutoff]                      # "BC2001_074_64862"
-
-        # Some IDs have underscores after th 'BC', e.g. 'BC_2000' as opposed to 'BC2000'
-        # Accept both options.
-        short_name_with_underscore = re.sub('^BC([0-9])', r'BC_\1', short_name)
-        short_name_with_underscore = re.sub('^MS([0-9])', r'MS_\1', short_name)
 
         # add short_name with and without underscores to dictionary
         if short_name not in files_listing:
@@ -204,10 +203,30 @@ def main():
         else:
             files_listing[short_name].append(key)
 
+        #
+        # Sometimes the FITS image filenames don't exactly match the same string format as the CUI,
+        # so we'll include two new key-pair that contains some common varieties: 
+        #
+
+        # 1) add an underscore to the prefix
+        # BC2001_074_64862  => BC_2001_074_64862
+        short_name_with_underscore = re.sub('^([a-zA-Z]+)([0-9])', r'\1_\2', short_name)
+
+        # add short_name with underscore to dictionary
         if short_name_with_underscore not in files_listing:
             files_listing[short_name_with_underscore] = [key]
         else:
             files_listing[short_name_with_underscore].append(key)
+
+        # 2) add a dash to the prefix
+        # BC2001_074_64862  => BC-2001_074_64862
+        short_name_with_dash = re.sub('^([a-zA-Z]+)([0-9])', r'\1_\2', short_name)
+
+        # add short_name with dash to dictionary
+        if short_name_with_dash not in files_listing:
+            files_listing[short_name_with_dash] = [key]
+        else:
+            files_listing[short_name_with_dash].append(key)
 
     #
     # Read the TSV file created with aspace_ead_to_tab.xsl to gather variables and make the API calls
