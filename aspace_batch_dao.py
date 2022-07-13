@@ -750,7 +750,7 @@ def create_date_json(jsontext, itemid, collection_dates):
     #       - inclusive
     #       - single
     has_expression = date_expression is not None
-    is_undated = has_expression and 'undated' in date_expression
+    is_undated = has_expression and ('undated' in date_expression)
     is_single = 'single' in date_type
 
     # return error if there isn't a date_expression nor beginning date
@@ -760,7 +760,7 @@ def create_date_json(jsontext, itemid, collection_dates):
         return None
 
     # return error if there the date_expression is 'undated' and there isn't a beginning date
-    if not date_begin and not is_undated:
+    if not date_begin and is_undated:
         write_out("ERROR: AO record has no beginning date and date expression is 'undated'. "
                         "Please check the metadata and try again.")
         return None
